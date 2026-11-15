@@ -102,6 +102,23 @@ class RegionTest(unittest.TestCase):
         R.add_midi_region(pd, T.find_track(pd, 2), tick=3840, length=3840, notes=[R.Note(0, 60, 100, 960)])
         self.assertEqual(len(R.midi_regions(reparse(pd))), 5)
 
+    def test_bar_counter_independent_of_prototype_position(self) -> None:
+        def counters(pd: ProjectData) -> dict[int, int]:
+            events = R._arrange_events(pd)  # pyright: ignore[reportPrivateUsage]
+            assert events is not None
+            body = events.payload
+            return {R.u32(body, o + 4) - R.REGION_ORIGIN: R.u32(body, o + 0x30) for o in R._placements(body, 0x20)}  # pyright: ignore[reportPrivateUsage]
+
+        pd = load("mixed_template_2inst")
+        track = T.find_track(pd, 1)
+        # The first add clones the bundled prototype; the second clones the
+        # region at bar 5 that the first add created.
+        R.add_midi_region(pd, track, tick=3840 * 4, length=3840, notes=[])
+        R.add_midi_region(pd, track, tick=0, length=3840, notes=[])
+        got = counters(pd)
+        self.assertEqual(got[3840 * 4] - got[0], 4 * 0x100)
+        self.assertEqual(got[0], R.u32(R.bundled_prototype().event, 0x30))
+
     def test_rejects_audio_track(self) -> None:
         pd = load("mixed_template_2inst")
         with self.assertRaises(R.RegionError):

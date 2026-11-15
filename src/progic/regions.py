@@ -317,7 +317,10 @@ def add_midi_region(
     put_u32(ev, 0x10, track.channel >> 16)
     put_u16(ev, 0x14, track.number)
     put_u32(ev, 0x20, idx >> 16)
-    put_u32(ev, 0x30, u32(proto.event, 0x30) + (tick // 3840) * 0x100)
+    # +0x30 advances by 0x100 per 3840 ticks of position. The prototype may sit
+    # anywhere, so its own offset is removed first.
+    proto_tick = u32(proto.event, 0x04) - REGION_ORIGIN
+    put_u32(ev, 0x30, u32(proto.event, 0x30) + (tick // 3840 - proto_tick // 3840) * 0x100)
 
     # Region groups go before the project pool (`OgnS`), like Logic's own.
     at = next((i for i, r in enumerate(pd.records) if r.tag == b"OgnS"), len(pd.records))
