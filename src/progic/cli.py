@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ Typical workflow:
   progic inspect Template.logicx            # see tracks, plugins, tempo, markers
   progic edit-format                        # the JSON edit file reference
   progic apply Template.logicx edits.json -o Song.logicx
+  progic inspect Song.logicx --notes        # check the result
 
 Projects are edited starting from a template made in Logic: tracks,
 instruments, and plugins come from the template, and progic writes tempo,
@@ -36,6 +38,11 @@ Apply a JSON edit file to a project. See `progic edit-format` for the
 format. Either write to a new project with -o (the input is copied first),
 or edit the input with --in-place. All edits are validated before anything
 is written; on error nothing changes. Prints a JSON summary of the changes."""
+
+SKILL_HELP = """\
+Print the agent skill (instructions for an LLM agent using progic), or
+install it with --install as a Claude Code skill. The default install
+location is ~/.claude/skills/progic/SKILL.md."""
 
 NEW_HELP = """\
 Copy a template project to a new path (without Logic's backup folders)."""
@@ -107,6 +114,18 @@ def cmd_edit_format(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_skill(args: argparse.Namespace) -> int:
+    text = resources.files("progic").joinpath("data/SKILL.md").read_text()
+    if args.install is None:
+        print(text, end="")
+        return 0
+    dest = Path(args.install).expanduser() / "SKILL.md"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(text)
+    print(json.dumps({"installed": str(dest)}))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="progic", description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -138,6 +157,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("edit-format", help="print the JSON edit file reference")
     p.set_defaults(func=cmd_edit_format)
+
+    p = sub.add_parser("skill", help="print or install the agent skill", description=SKILL_HELP, formatter_class=raw)
+    p.add_argument(
+        "--install",
+        nargs="?",
+        const="~/.claude/skills/progic",
+        metavar="DIR",
+        help="write SKILL.md into DIR (default ~/.claude/skills/progic)",
+    )
+    p.set_defaults(func=cmd_skill)
     return parser
 
 

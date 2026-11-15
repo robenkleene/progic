@@ -192,6 +192,14 @@ class CliTest(unittest.TestCase):
         code, stdout, _ = run("edit-format")
         self.assertIn("EDIT FILE FORMAT", stdout)
 
+    def test_skill_print_and_install(self) -> None:
+        code, stdout, _ = run("skill")
+        self.assertEqual(code, 0)
+        self.assertTrue(stdout.startswith("---\nname: progic\n"))
+        code, _, _ = run("skill", "--install", str(self.tmp / "skills" / "progic"))
+        self.assertEqual(code, 0)
+        self.assertEqual((self.tmp / "skills" / "progic" / "SKILL.md").read_text(), stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
