@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "progic"
+version = "0.1.0"
+description = "A CLI for creating and editing Logic Pro projects, designed to be driven by LLM agents."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Roben Kleene" }]
+keywords = ["logic-pro", "logicx", "daw", "midi", "llm", "agent"]
+dependencies = []
+
+[project.scripts]
+progic = "progic.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+progic = ["data/*"]
+
+[tool.pyright]
+include = ["src", "tests"]
+typeCheckingMode = "strict"
