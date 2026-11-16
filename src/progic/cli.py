@@ -22,22 +22,25 @@ Typical workflow:
   progic apply Template.logicx edits.json -o Song.logicx
   progic inspect Song.logicx --notes        # check the result
 
-Projects are edited starting from a template made in Logic: tracks,
-instruments, and plugins come from the template, and progic writes tempo,
-meter, markers, track names, mixer settings, and MIDI regions.
+Projects are edited starting from a template made in Logic: instruments
+and plugins come from the template's tracks, and progic writes tempo, meter,
+markers, track names, mixer settings, and MIDI regions. It can also add
+empty software instrument tracks to a suitable template.
 """
 
 INSPECT_HELP = """\
 Print a project summary as JSON (or text with --text): tempo map, meter
 map, markers, and each track with its number, name, kind (instrument,
 audio, aux, ...), volume, pan, plugins, and MIDI regions. Positions are
-1-based bars and beats. Use --notes to include every note."""
+1-based bars and beats. Use --notes to include every note. It also reports
+whether tracks can be added to the project (can_add_tracks)."""
 
 APPLY_HELP = """\
 Apply a JSON edit file to a project. See `progic edit-format` for the
 format. Either write to a new project with -o (the input is copied first),
-or edit the input with --in-place. All edits are validated before anything
-is written; on error nothing changes. Prints a JSON summary of the changes."""
+edit the input with --in-place, or only validate with --dry-run. All edits
+are validated before anything is written; on error nothing changes. Prints
+a JSON summary of the changes."""
 
 SKILL_HELP = """\
 Print the agent skill (instructions for an LLM agent using progic), or
@@ -91,8 +94,10 @@ def cmd_new(args: argparse.Namespace) -> int:
 
 
 def cmd_apply(args: argparse.Namespace) -> int:
-    if bool(args.output) == bool(args.in_place):
-        raise CliError("pass exactly one of -o OUTPUT or --in-place")
+    if args.output and args.in_place:
+        raise CliError("pass only one of -o OUTPUT or --in-place")
+    if not (args.output or args.in_place or args.dry_run):
+        raise CliError("pass -o OUTPUT, --in-place, or --dry-run")
     edit_doc = _read_edits(args.edits)
     src, pd = _load(args.project)
     summary = edits.apply(pd, edit_doc)

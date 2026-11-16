@@ -164,7 +164,17 @@ class CliTest(unittest.TestCase):
         edit_path.write_text("{}")
         code, _, stderr = run("apply", str(fixture("F0_baseline")), str(edit_path))
         self.assertEqual(code, 1)
-        self.assertIn("-o OUTPUT or --in-place", stderr)
+        self.assertIn("-o OUTPUT, --in-place, or --dry-run", stderr)
+        code, _, stderr = run("apply", str(fixture("F0_baseline")), str(edit_path), "-o", "x", "--in-place")
+        self.assertEqual(code, 1)
+        self.assertIn("only one of", stderr)
+
+    def test_dry_run_needs_no_output(self) -> None:
+        edit_path = self.tmp / "edits.json"
+        edit_path.write_text(json.dumps({"tempo": 90}))
+        code, stdout, _ = run("apply", str(fixture("F0_baseline")), str(edit_path), "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(stdout)["dry_run"])
 
     def test_dry_run_writes_nothing(self) -> None:
         project = self.tmp / "P.logicx"

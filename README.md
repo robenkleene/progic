@@ -2,7 +2,7 @@
 
 Progic is a command-line tool for creating and editing Logic Pro projects (`.logicx`) without Logic. It's designed to be driven by LLM agents: every command takes or prints JSON, positions are musical (bars, beats, quarter notes), and errors say exactly which part of the input was wrong.
 
-You build a template in Logic with the tracks, instruments, and plugins you want. Progic then writes the musical content around it: tempo, time signatures, markers, track names, mixer settings, and MIDI regions with notes.
+You build a template in Logic with the tracks, instruments, and plugins you want. Progic then writes the musical content around it: tempo, time signatures, markers, track names, mixer settings, and MIDI regions with notes. It can also add empty software instrument tracks.
 
 ## Quick Start for Agents
 
@@ -44,11 +44,11 @@ A minimal edit file:
 
 ### `progic inspect PROJECT [--notes] [--text]`
 
-Prints the tempo map, meter map, markers, and every track with its number, name, kind (`instrument`, `audio`, `aux`, ...), volume, pan, plugins, and MIDI regions. JSON by default; `--text` for a compact summary; `--notes` to include every note.
+Prints the tempo map, meter map, markers, and every track with its number, name, kind (`instrument`, `audio`, `aux`, ...), volume, pan, plugins, and MIDI regions. It also reports `can_add_tracks`, with `free_instrument_strips` (how many tracks can be added) or `cannot_add_tracks_reason`. JSON by default; `--text` for a compact summary; `--notes` to include every note.
 
-### `progic apply PROJECT EDITS (-o OUTPUT | --in-place) [--force] [--dry-run]`
+### `progic apply PROJECT EDITS (-o OUTPUT | --in-place | --dry-run) [--force]`
 
-Applies a JSON edit file (`-` reads it from stdin). With `-o` the project is copied to `OUTPUT` first; with `--in-place` the input is modified. All edits are validated in memory before anything is written, so a failed `apply` changes nothing. Prints a JSON summary of the changes.
+Applies a JSON edit file (`-` reads it from stdin). With `-o` the project is copied to `OUTPUT` first; with `--in-place` the input is modified; with `--dry-run` nothing is written. All edits are validated in memory before anything is written, so a failed `apply` changes nothing. Prints a JSON summary of the changes.
 
 ### `progic new TEMPLATE OUTPUT [--force]`
 
@@ -61,7 +61,7 @@ Prints the full edit file reference. The edit file can set:
 - `meter`: one signature (`"4/4"`) or a list of changes by bar
 - `tempo`: one BPM or a list of changes by bar and beat
 - `markers`: the complete list of markers (replaces existing ones)
-- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), `clear_regions`, and new MIDI `regions`
+- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), `clear_regions`, and new MIDI `regions`; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
 
 ### `progic skill [--install [DIR]]`
 
@@ -76,7 +76,15 @@ Prints the agent skill for using progic, or installs it as a Claude Code skill (
 
 ## Templates
 
-Progic edits the tracks a template already has. It doesn't create tracks or change instruments and plugins, so a template should contain every track a song needs, with its instrument and plugins loaded. Unused tracks can be left empty.
+Progic doesn't load instruments or plugins, so a template should contain a track for every sound a song needs, with its instrument and plugins loaded. Unused tracks can be left empty.
+
+Progic can add software instrument tracks, but they come with an empty channel strip: no instrument or plugins. Logic can't load a mixer channel created from scratch, so an added track uses one of the spare instrument channel strips Logic pre-allocates in a new project. Adding tracks needs a template that:
+
+- has at least 3 software instrument tracks,
+- has a software instrument track as the last track created, and
+- still has spare instrument strips. Logic leaves about 60 in some projects and none in others, so check with `inspect`.
+
+`progic inspect` reports whether a project meets these (`can_add_tracks`).
 
 To be able to write markers, the template needs a marker track: in Logic, add a marker, delete it, and save. `progic inspect` reports this as `has_marker_track`.
 
@@ -107,6 +115,7 @@ The format is undocumented and can change between Logic releases. The test fixtu
 - `src/progic/bundle.py`: the `.logicx` folder, plists, and copying
 - `src/progic/timeline.py`: tempo, meter, markers, and bar/tick conversion
 - `src/progic/tracks.py`: tracks, channel strips, plugins, renaming, mixer
+- `src/progic/addtrack.py`: adding software instrument tracks
 - `src/progic/regions.py`: MIDI regions and notes
 - `src/progic/inspect.py`: the `inspect` summary
 - `src/progic/edits.py`: the edit file format and `apply`

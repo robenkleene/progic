@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from . import regions, timeline, tracks
+from . import addtrack, regions, timeline, tracks
 from .container import ProjectData
 from .timeline import PPQ, MeterPoint, TimeMap
 
@@ -31,9 +31,10 @@ are allowed.
     {"bar": 1, "name": "Intro"},
     {"bar": 17, "name": "Breakdown"}
   ],
-  "tracks": [                                // edits to existing tracks
+  "tracks": [                                // edits to tracks, in order
     {
       "track": "Inst 1",                     // current name, or 1-based number
+                                             //   (or "add", below)
       "name": "Lead",                        // rename
       "volume": 100,                         // fader, 0-127 (90 = 0 dB default)
       "pan": 64,                             // 0 = left, 64 = center, 127 = right
@@ -53,9 +54,18 @@ are allowed.
           ]
         }
       ]
+    },
+    {
+      "add": "instrument",                   // ADD a software instrument track
+      "name": "Arp",                         // required for added tracks
+      "regions": [ ... ]                     // plus any other keys above
     }
   ]
 }
+
+Added tracks go after the last track, in the order given. Their channel
+strip is empty: no instrument or plugins are loaded, so the user has to
+choose a sound for them in Logic.
 
 Order of application: meter, tempo, markers, then tracks in the order given.
 Bar positions are resolved against the meter after the "meter" edit. Track
@@ -66,6 +76,9 @@ Requirements:
   - "markers" needs a project with a marker track (in Logic: add a marker,
     delete it, save). `progic inspect` reports "has_marker_track".
   - "regions" need instrument tracks.
+  - "add" needs a template with at least 3 instrument tracks whose most
+    recently created track is an instrument track. `progic inspect` reports
+    "can_add_tracks" (with "cannot_add_tracks_reason" if not).
 """
 
 _NOTE_NAMES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
@@ -237,24 +250,39 @@ def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
         track_edits = _changes(doc["tracks"], "tracks")
         # Resolve every reference up front so renames can't change what a
         # later edit refers to.
-        targets: list[tracks.Track] = []
+        # Added tracks go at the end, so existing track numbers don't change.
+        targets: list[tracks.Track | None] = []
         for i, te in enumerate(track_edits):
-            if "track" not in te:
-                raise EditError(f"tracks[{i}]: missing 'track' (a track name or number)")
-            try:
-                targets.append(tracks.find_track(pd, te["track"]))
-            except tracks.TrackError as e:
-                raise EditError(f"tracks[{i}]: {e}") from e
-        done: list[dict[str, Any]] = []
-        for i, (te, track) in enumerate(zip(track_edits, targets)):
             where = f"tracks[{i}]"
-            unknown = set(te) - {"track", "name", "volume", "pan", "clear_regions", "regions"}
+            unknown = set(te) - {"track", "add", "name", "volume", "pan", "clear_regions", "regions"}
             if unknown:
                 raise EditError(f"{where}: unknown keys: {', '.join(sorted(unknown))}")
-            result: dict[str, Any] = {"track": track.number}
-            # Look the track up again: earlier edits may have replaced records.
-            track = tracks.find_track(pd, track.number)
+            if ("track" in te) == ("add" in te):
+                raise EditError(f"{where}: give exactly one of 'track' (an existing track) or 'add'")
+            if "add" not in te:
+                try:
+                    targets.append(tracks.find_track(pd, te["track"]))
+                except tracks.TrackError as e:
+                    raise EditError(f"{where}: {e}") from e
+                continue
+            if te["add"] != "instrument":
+                raise EditError(f"{where}: 'add' must be \"instrument\" (got {te['add']!r})")
+            if not isinstance(te.get("name"), str):
+                raise EditError(f"{where}: an added track needs a 'name'")
+            if te.get("clear_regions"):
+                raise EditError(f"{where}: an added track has no regions to clear")
+            targets.append(None)
+        done: list[dict[str, Any]] = []
+        for i, (te, target) in enumerate(zip(track_edits, targets)):
+            where = f"tracks[{i}]"
             try:
+                if target is None:
+                    track = addtrack.add_instrument_track(pd)
+                    result: dict[str, Any] = {"track": track.number, "added": "instrument"}
+                else:
+                    # Look the track up again: earlier edits may have replaced records.
+                    track = tracks.find_track(pd, target.number)
+                    result = {"track": track.number}
                 # Renaming first means new regions default to the new name.
                 if "name" in te:
                     if not isinstance(te["name"], str):

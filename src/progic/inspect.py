@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import regions, timeline, tracks
+from . import addtrack, regions, timeline, tracks
 from .container import ProjectData
 from .timeline import PPQ, TimeMap
 
@@ -83,13 +83,20 @@ def inspect(pd: ProjectData, *, notes: bool = False) -> dict[str, Any]:
         entry["regions"] = region_list
         track_list.append(entry)
 
-    return {
+    cannot_add = addtrack.can_add_instrument(pd)
+    summary: dict[str, Any] = {
         "tempo": [{**position(tm, p.tick), "bpm": _round(p.bpm)} for p in timeline.tempo_map(pd)],
         "meter": [{**position(tm, p.tick), "signature": f"{p.numerator}/{p.denominator}"} for p in meter],
         "has_marker_track": timeline.has_marker_track(pd),
         "markers": [{**position(tm, m.tick), "name": m.name} for m in timeline.markers(pd)],
+        "can_add_tracks": cannot_add is None,
         "tracks": track_list,
     }
+    if cannot_add is None:
+        summary["free_instrument_strips"] = addtrack.free_instrument_strips(pd)
+    else:
+        summary["cannot_add_tracks_reason"] = cannot_add
+    return summary
 
 
 def text(summary: dict[str, Any]) -> str:
@@ -104,6 +111,10 @@ def text(summary: dict[str, Any]) -> str:
         lines.append(f"Markers: {markers}")
     else:
         lines.append("Markers: no marker track (markers can't be added)")
+    if summary["can_add_tracks"]:
+        lines.append(f"Adding tracks: yes, up to {summary['free_instrument_strips']} instrument tracks")
+    else:
+        lines.append(f"Adding tracks: no ({summary['cannot_add_tracks_reason']})")
     lines.append("Tracks:")
     for t in summary["tracks"]:
         mix = f" vol {t['volume']} pan {t['pan']}" if "volume" in t else ""

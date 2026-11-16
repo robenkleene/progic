@@ -163,7 +163,13 @@ def midi_regions(pd: ProjectData) -> list[MidiRegion]:
 # --- prototypes -------------------------------------------------------------
 
 
-def _arrange_container(pd: ProjectData) -> Record | None:
+def arrange_height_offset(container: Record) -> int:
+    """Offset of the arrange container's height, 0x3c per row (tracks plus
+    master); Logic draws only as many rows as fit."""
+    return _name_end(container.raw) + 0x0A
+
+
+def arrange_container(pd: ProjectData) -> Record | None:
     """The real arrange `qeSM`. Some projects also carry a larger decoy
     `qeSM` at the same idx whose height field is always 0; writing next to the
     decoy leaves regions invisible. The real one has a height that is a
@@ -171,7 +177,7 @@ def _arrange_container(pd: ProjectData) -> Record | None:
     cands = list(pd.find(b"qeSM", ARRANGE_IDX))
 
     def height(r: Record) -> int:
-        o = _name_end(r.raw) + 0x0A
+        o = arrange_height_offset(r)
         return u16(r.raw, o) if o + 2 <= len(r.raw) else 0
 
     real = [r for r in cands if height(r) and height(r) % _ARRANGE_ROW_HEIGHT == 0]
@@ -180,7 +186,7 @@ def _arrange_container(pd: ProjectData) -> Record | None:
 
 
 def _arrange_events(pd: ProjectData) -> Record | None:
-    container = _arrange_container(pd)
+    container = arrange_container(pd)
     if container is None:
         return None
     start = pd.records.index(container)
