@@ -127,6 +127,10 @@ def _instrument_channels(pd: ProjectData) -> dict[int, Record]:
 
 def can_add_instrument(pd: ProjectData) -> str | None:
     """None if an instrument track can be added, else the reason it can't."""
+    # Logic 13 track rows are a byte longer, and its projects have no spare
+    # strips, so this method doesn't apply to them.
+    if any(len(r.raw) != _KART_SIZE for r in tracks.arrange_rows(pd)):
+        return "adding tracks to projects saved by Logic 13 isn't supported yet"
     song = pd.song
     newest = u32(song.raw, _GNOS_MAX_CHANNEL)
     count = sum(1 for t in tracks.tracks(pd) if t.kind == "instrument")

@@ -70,6 +70,9 @@ class AddInstrumentTrackTest(unittest.TestCase):
         self.assertIn("most recently created", addtrack.can_add_instrument(pd) or "")
         with self.assertRaises(TrackError):
             addtrack.add_instrument_track(pd)
+        # Logic 13 projects.
+        pd = _load("L13_template")
+        self.assertIn("Logic 13", addtrack.can_add_instrument(pd) or "")
 
 
 class AddTrackEditTest(unittest.TestCase):
