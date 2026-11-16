@@ -107,7 +107,7 @@ A `.logicx` project is a folder. The project itself is the binary file `Alternat
 
 The reverse-engineered format, and much of the record-level code, comes from [LogicProFormatWriter](https://github.com/jonkubis/LogicProFormatWriter) (MIT, see `NOTICE`). Its `PROJECTDATA_FORMAT.md` documents the records; comments in progic refer to its sections (e.g. "§16").
 
-The format is undocumented and can change between Logic releases. The test fixtures were saved by Logic Pro 12.0.1.
+The format is undocumented and changes between Logic releases. Most test fixtures were saved by Logic Pro 11.2.2; the `L13_*` fixtures were saved by Logic Pro 13.0, which changed the layout of channel strips and track rows. Adding tracks is implemented for the Logic 11 layout only.
 
 ## Layout
 

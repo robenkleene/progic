@@ -101,8 +101,30 @@ def _is_strip(r: Record) -> bool:
     return len(r.raw) >= _OCUA_UUID + 16 and len(pay) > 0x5A and u16(pay, 0x0A) == _OCUA_MAGIC
 
 
+def strip_uuid_offsets(r: Record) -> tuple[int, int]:
+    """Where a strip's channel UUID may be. Up to Logic 12 it is the last 16
+    bytes of the strip; Logic 13 appends 32 bytes (the output's UUID and
+    padding) after it."""
+    return len(r.raw) - 16, len(r.raw) - 48
+
+
+def strips_by_uuid(pd: ProjectData) -> dict[bytes, Record]:
+    """Channel strips keyed by the channel UUID they belong to, for both
+    layouts. Mapping both candidate offsets is safe: a random UUID never
+    matches by accident."""
+    out: dict[bytes, Record] = {}
+    for r in pd.find(b"OCuA"):
+        if _is_strip(r):
+            for off in strip_uuid_offsets(r):
+                out.setdefault(r.raw[off:off + 16], r)
+    out.pop(bytes(16), None)
+    return out
+
+
 def arrange_rows(pd: ProjectData) -> list[Record]:
-    """Populated arrange rows in Tracks-area order, excluding the master row."""
+    """Populated arrange rows in stream order, excluding the master row (up to
+    Logic 12). Logic 13 also has a row for the main output, which `tracks`
+    leaves out."""
     return [
         r
         for r in pd.find(b"karT", ARRANGE_IDX)
@@ -147,16 +169,18 @@ def _plugins(pd: ProjectData, strip_id: int) -> list[Plugin]:
 
 def tracks(pd: ProjectData) -> list[Track]:
     ivnes = {r.idx: r for r in pd.find(b"ivnE")}
-    strips = {r.raw[_OCUA_UUID:_OCUA_UUID + 16]: r for r in pd.find(b"OCuA") if _is_strip(r)}
+    strips = strips_by_uuid(pd)
     out: list[Track] = []
-    for n, row in enumerate(arrange_rows(pd), start=1):
+    for row in arrange_rows(pd):
         channel = u32(row.raw, _KART_CHANNEL)
         ivne = ivnes.get(channel)
         if ivne is None:
             continue
         strip = strips.get(ivne_uuid(ivne.raw))
         kind = STRIP_TYPES.get(strip.raw[REC_HEADER_SIZE + 4], "unknown") if strip else "unknown"
-        t = Track(n, ivne_name(ivne.raw), kind, channel, ivne, strip)
+        if kind in ("output", "master"):
+            continue
+        t = Track(len(out) + 1, ivne_name(ivne.raw), kind, channel, ivne, strip)
         if t.strip_id is not None:
             t.plugins = _plugins(pd, t.strip_id)
         out.append(t)

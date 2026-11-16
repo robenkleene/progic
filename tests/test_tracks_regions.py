@@ -135,3 +135,21 @@ class RegionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Logic13Test(unittest.TestCase):
+    """Projects saved by Logic 13, whose strips have a different layout."""
+
+    def test_tracks_and_plugins(self) -> None:
+        pd = Bundle(fixture("L13_dupe2")).read()
+        all_tracks = T.tracks(pd)
+        self.assertEqual(
+            [t.name for t in all_tracks], ["Untitled", "Untitled", "Deluxe Classic", "Deluxe Classic", "Deluxe Classic"]
+        )
+        self.assertEqual({t.kind for t in all_tracks}, {"instrument"})
+        depth = [p.name for p in all_tracks[0].plugins]
+        self.assertEqual(depth, ["Depth", "Drambo (Fx)", "Compressor", "Mania"])
+        # The duplicated tracks carry the same plugins as their originals.
+        self.assertEqual([p.name for p in all_tracks[1].plugins], depth)
+        self.assertEqual([p.name for p in all_tracks[3].plugins], ["Alchemy"])
+        self.assertEqual(all_tracks[0].plugins[0].au_type, "aumu")
