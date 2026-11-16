@@ -41,6 +41,7 @@ _QESM_NAME = 0x34
 # Offsets after the end of the region name field.
 _QESM_LENGTH_AFTER_NAME = 0x3C
 _QESM_START_AFTER_NAME = 0xE0
+_QESM_CHANNEL_AFTER_NAME = 0xCA
 _ARRANGE_ROW_HEIGHT = 0x3C
 
 _NOTE_ON = 0x90
@@ -209,8 +210,8 @@ def extract_prototype(pd: ProjectData) -> Prototype | None:
         if qe is None or _qesm_name(qe.raw) == _AUTOMATION:
             continue
         group = [(r.tag, r.raw) for r in pd.records if r.tag in _REGION_GROUP_TAGS and r.idx == idx]
-        # The region's channel reference, restamped on each clone.
-        return Prototype(group, body[o:o + PLACEMENT_SIZE], u32(qe.raw, 0x106))
+        channel = u32(qe.raw, _name_end(qe.raw) + _QESM_CHANNEL_AFTER_NAME)
+        return Prototype(group, body[o:o + PLACEMENT_SIZE], channel)
     return None
 
 
@@ -303,17 +304,19 @@ def add_midi_region(
     clones: list[Record] = []
     for tag, raw in proto.group:
         b = bytearray(raw)
-        for o in range(len(b) - 3):
-            if u32(b, o) == proto.channel:
-                put_u32(b, o, track.channel)
         put_u32(b, 0x08, idx)
         if tag == b"qSvE":
             rec = Record(tag, bytes(b)).with_payload(encode_notes(notes))
         elif tag == b"qeSM":
+            # The length, start, and channel sit at fixed distances after the
+            # variable-length name, so they're written after renaming. The
+            # channel is the only reference to it in the region group.
+            b = bytearray(_rename_qesm(bytes(b), name))
             end = _name_end(bytes(b))
             put_u32(b, end + _QESM_LENGTH_AFTER_NAME, length)
             put_u32(b, end + _QESM_START_AFTER_NAME, tick)
-            rec = Record(tag, _rename_qesm(bytes(b), name))
+            put_u32(b, end + _QESM_CHANNEL_AFTER_NAME, track.channel)
+            rec = Record(tag, bytes(b))
         else:
             rec = Record(tag, bytes(b))
         clones.append(rec)

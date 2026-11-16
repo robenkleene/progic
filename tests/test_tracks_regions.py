@@ -97,6 +97,19 @@ class RegionTest(unittest.TestCase):
         )
         self.assertEqual(len({r.idx for r in got}), 2)
 
+    def test_clone_of_region_with_other_name_length(self) -> None:
+        # The second add clones the first, whose name has a different length
+        # than the bundled prototype's, so everything after the name moved.
+        for name in ("Untitled", "Pad", "A much longer region name"):
+            with self.subTest(name=name):
+                pd = load("mixed_template_2inst")
+                R.add_midi_region(pd, T.find_track(pd, 1), tick=0, length=3840, notes=[], name=name)
+                R.add_midi_region(pd, T.find_track(pd, 3), tick=3840, length=3840, notes=[R.Note(0, 60, 100, 960)])
+                got = R.midi_regions(reparse(pd))
+                self.assertEqual([(r.track, r.tick, r.name) for r in got], [(1, 0, name), (3, 3840, "Inst 2")])
+                second = next(r for r in pd.find(b"qeSM", got[1].idx))
+                self.assertEqual(R.u32(second.raw, R._name_end(second.raw) + 0xCA), 0x600000)  # pyright: ignore[reportPrivateUsage]
+
     def test_add_region_uses_project_prototype_when_present(self) -> None:
         pd = load("F22_multimidi")
         R.add_midi_region(pd, T.find_track(pd, 2), tick=3840, length=3840, notes=[R.Note(0, 60, 100, 960)])
