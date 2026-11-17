@@ -1,9 +1,11 @@
 """MIDI regions on instrument tracks.
 
-A MIDI region is a group of five records sharing one cluster index (`idx`):
-`tSxT`, `lytS`, `qeSM` (the region container: name, length, start), `karT`, and
-`qSvE` (the notes). The region is placed on a track by an 80-byte placement
-event in the arrange event sequence:
+A MIDI region is a group of three records sharing one cluster index (`idx`):
+`qeSM` (the region container: name, length, start), `karT`, and `qSvE` (the
+notes). The `tSxT` and `lytS` records that can share a region's index belong to
+the score style list, not the region. The region is placed on a track by an
+80-byte placement event in the arrange event sequence, which Logic keeps sorted
+by position:
 
     +0x00 0x20 (MIDI placement)   +0x04 position (REGION_ORIGIN + tick)
     +0x10 channel idx >> 16       +0x14 track number (u16, 1-based)
@@ -31,18 +33,31 @@ from .tracks import ARRANGE_IDX, Track
 REGION_ORIGIN = 34560
 PLACEMENT_SIZE = 0x50
 _MIDI_PLACEMENT = 0x20
-_REGION_GROUP_TAGS = (b"tSxT", b"lytS", b"qeSM", b"karT", b"qSvE")
+_REGION_GROUP_TAGS = (b"qeSM", b"karT", b"qSvE")
 _AUTOMATION = b"*Automation"
 _IDX_STRIDE = 0x40000
 # New regions use cluster indexes from here up, clear of tracks and channels.
 _FIRST_NEW_REGION_IDX = 0x1200000
 
 _QESM_NAME = 0x34
+# A sequence id, unique among sequences, stored in the region's `qeSM` and in
+# the header of its `qSvE`.
+_QESM_SEQUENCE_ID = 0x2C
+_QSVE_SEQUENCE_ID = 0x0E
 # Offsets after the end of the region name field.
 _QESM_LENGTH_AFTER_NAME = 0x3C
 _QESM_START_AFTER_NAME = 0xE0
 _QESM_CHANNEL_AFTER_NAME = 0xCA
+# Minus one more than the track's instrument number, the strip's position among
+# instrument strips (signed 16-bit).
+_QESM_INSTRUMENT_AFTER_NAME = 0xD4
+_STRIP_INSTRUMENT_POSITION = 0x2A
 _ARRANGE_ROW_HEIGHT = 0x3C
+# Format version fields, as (offset, size) per tag. Logic 11 writes `karT`
+# version 5 and `qeSM` 0x370, Logic 13 writes 6 and 0x400, and the layouts are
+# otherwise the same. Logic upgrades older records when it opens a project,
+# which marks the project modified, so clones take the project's versions.
+_VERSION_FIELDS = {b"karT": (0x04, 1), b"qeSM": (0x24, 2)}
 
 _NOTE_ON = 0x90
 
@@ -268,6 +283,12 @@ def _free_region_idx(pd: ProjectData) -> int:
     return idx
 
 
+def _free_sequence_id(pd: ProjectData) -> int:
+    used = [u16(r.raw, _QSVE_SEQUENCE_ID) for r in pd.find(b"qSvE")]
+    used += [u16(r.raw, _QESM_SEQUENCE_ID) for r in pd.find(b"qeSM")]
+    return max(used, default=0) + 1
+
+
 def _rename_qesm(raw: bytes, name: str) -> bytes:
     encoded = name.encode("latin-1", "replace")
     old = _name_end(raw) - _QESM_NAME
@@ -275,6 +296,15 @@ def _rename_qesm(raw: bytes, name: str) -> bytes:
     put_u16(new, 0, len(encoded))
     out = raw[:_QESM_NAME] + bytes(new) + raw[_QESM_NAME + old:]
     return Record(b"qeSM", out).with_payload(out[REC_HEADER_SIZE:]).raw
+
+
+def _adopt_versions(pd: ProjectData, tag: bytes, b: bytearray) -> None:
+    version = _VERSION_FIELDS.get(tag)
+    existing = pd.first(tag)
+    if version is None or existing is None:
+        return
+    off, size = version
+    b[off:off + size] = existing.raw[off:off + size]
 
 
 def add_midi_region(
@@ -301,21 +331,28 @@ def add_midi_region(
 
     name = name or track.name
     idx = _free_region_idx(pd)
+    sequence_id = _free_sequence_id(pd)
     clones: list[Record] = []
     for tag, raw in proto.group:
         b = bytearray(raw)
         put_u32(b, 0x08, idx)
+        _adopt_versions(pd, tag, b)
         if tag == b"qSvE":
+            put_u16(b, _QSVE_SEQUENCE_ID, sequence_id)
             rec = Record(tag, bytes(b)).with_payload(encode_notes(notes))
         elif tag == b"qeSM":
-            # The length, start, and channel sit at fixed distances after the
-            # variable-length name, so they're written after renaming. The
-            # channel is the only reference to it in the region group.
+            # The length, start, channel, and instrument number sit at fixed
+            # distances after the variable-length name, so they're written after
+            # renaming. They're the only references to the track in the group.
+            put_u16(b, _QESM_SEQUENCE_ID, sequence_id)
             b = bytearray(_rename_qesm(bytes(b), name))
             end = _name_end(bytes(b))
             put_u32(b, end + _QESM_LENGTH_AFTER_NAME, length)
             put_u32(b, end + _QESM_START_AFTER_NAME, tick)
             put_u32(b, end + _QESM_CHANNEL_AFTER_NAME, track.channel)
+            if track.strip is not None:
+                position = u16(track.strip.raw, _STRIP_INSTRUMENT_POSITION)
+                put_u16(b, end + _QESM_INSTRUMENT_AFTER_NAME, -(position + 1) & 0xFFFF)
             rec = Record(tag, bytes(b))
         else:
             rec = Record(tag, bytes(b))
@@ -334,7 +371,14 @@ def add_midi_region(
     # Region groups go before the project pool (`OgnS`), like Logic's own.
     at = next((i for i, r in enumerate(pd.records) if r.tag == b"OgnS"), len(pd.records))
     pd.records[at:at] = clones
-    events.set_payload(bytes(ev) + events.payload)
+    body = events.payload
+    at = 0
+    for o in _placements(body, _MIDI_PLACEMENT):
+        if u32(body, o + 0x04) > REGION_ORIGIN + tick:
+            at = o
+            break
+        at = o + PLACEMENT_SIZE
+    events.set_payload(body[:at] + bytes(ev) + body[at:])
 
     return MidiRegion(track.number, tick, length, name, idx, sorted(notes, key=lambda n: (n.tick, n.pitch)))
 

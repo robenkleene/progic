@@ -110,6 +110,32 @@ class RegionTest(unittest.TestCase):
                 second = next(r for r in pd.find(b"qeSM", got[1].idx))
                 self.assertEqual(R.u32(second.raw, R._name_end(second.raw) + 0xCA), 0x600000)  # pyright: ignore[reportPrivateUsage]
 
+    def test_instrument_number_matches_logic(self) -> None:
+        # Logic stores minus one more than the instrument strip's position.
+        logic = load("F22_multimidi")
+        pd = load("F22_multimidi")
+        R.remove_midi_regions(pd, T.find_track(pd, 3))
+        R.add_midi_region(pd, T.find_track(pd, 3), tick=0, length=3840, notes=[], name="Inst 3")
+        def field(p: ProjectData, track: int) -> bytes:
+            region = next(r for r in R.midi_regions(p) if r.track == track)
+            qe = p.first(b"qeSM", region.idx)
+            assert qe is not None
+            return qe.raw[R._name_end(qe.raw) + 0xD4:][:2]  # pyright: ignore[reportPrivateUsage]
+        self.assertEqual(field(reparse(pd), 3), field(logic, 3))
+        self.assertEqual(field(logic, 3), b"\xfd\xff")
+
+    def test_sequence_ids_stay_unique(self) -> None:
+        pd = load("mixed_template_2inst")
+        for bar in (1, 2, 3):
+            R.add_midi_region(pd, T.find_track(pd, 1), tick=3840 * (bar - 1), length=3840, notes=[])
+        pd = reparse(pd)
+        ids = [R.u16(r.raw, 0x0E) for r in pd.find(b"qSvE")]
+        self.assertEqual(len(ids), len(set(ids)))
+        for region in R.midi_regions(pd):
+            qe, seq = pd.first(b"qeSM", region.idx), pd.first(b"qSvE", region.idx)
+            assert qe is not None and seq is not None
+            self.assertEqual(R.u16(qe.raw, 0x2C), R.u16(seq.raw, 0x0E))
+
     def test_add_region_uses_project_prototype_when_present(self) -> None:
         pd = load("F22_multimidi")
         R.add_midi_region(pd, T.find_track(pd, 2), tick=3840, length=3840, notes=[R.Note(0, 60, 100, 960)])
@@ -143,7 +169,34 @@ class RegionTest(unittest.TestCase):
         self.assertEqual(R.remove_midi_regions(pd, T.find_track(pd, 2)), 1)
         pd = reparse(pd)
         self.assertEqual([r.track for r in R.midi_regions(pd)], [1, 3, 4])
-        self.assertEqual(len(pd.records), before - 5)
+        self.assertEqual(len(pd.records), before - 3)
+
+    def test_score_styles_are_not_part_of_regions(self) -> None:
+        # The region at 0x240000 shares its index with a score style, which
+        # stays when the region is removed and isn't copied by new regions.
+        def styles(pd: ProjectData) -> list[tuple[bytes, int]]:
+            return [(r.tag, r.idx) for r in pd.records if r.tag in (b"tSxT", b"lytS")]
+
+        pd = load("F22_multimidi")
+        before = styles(pd)
+        self.assertIn((b"lytS", 0x240000), before)
+        R.remove_midi_regions(pd, T.find_track(pd, 2))
+        R.add_midi_region(pd, T.find_track(pd, 1), tick=3840, length=3840, notes=[])
+        self.assertEqual(styles(reparse(pd)), before)
+        pd = load("L13_template")
+        before = styles(pd)
+        R.add_midi_region(pd, T.find_track(pd, 1), tick=0, length=3840, notes=[])
+        self.assertEqual(styles(reparse(pd)), before)
+
+    def test_placements_sorted_by_position(self) -> None:
+        pd = load("mixed_template_2inst")
+        for track, bar in ((1, 5), (3, 1), (4, 9), (1, 3)):
+            R.add_midi_region(pd, T.find_track(pd, track), tick=3840 * (bar - 1), length=3840, notes=[])
+        events = R._arrange_events(reparse(pd))  # pyright: ignore[reportPrivateUsage]
+        assert events is not None
+        body = events.payload
+        got = [R.u32(body, o + 4) - R.REGION_ORIGIN for o in R._placements(body, 0x20)]  # pyright: ignore[reportPrivateUsage]
+        self.assertEqual(got, [0, 3840 * 2, 3840 * 4, 3840 * 8])
 
 
 if __name__ == "__main__":
@@ -166,3 +219,13 @@ class Logic13Test(unittest.TestCase):
         self.assertEqual([p.name for p in all_tracks[1].plugins], depth)
         self.assertEqual([p.name for p in all_tracks[3].plugins], ["Alchemy"])
         self.assertEqual(all_tracks[0].plugins[0].au_type, "aumu")
+
+    def test_region_uses_project_record_versions(self) -> None:
+        # Logic 13 upgrades records in Logic 11's format when it opens a
+        # project, which marks it modified, so a region cloned from the bundled
+        # Logic 11 prototype must take the project's versions.
+        pd = Bundle(fixture("L13_template")).read()
+        R.add_midi_region(pd, T.find_track(pd, 1), tick=0, length=3840, notes=[])
+        idx = R.midi_regions(reparse(pd))[0].idx
+        self.assertEqual(pd.first(b"karT", idx).raw[4], 6)  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(R.u16(pd.first(b"qeSM", idx).raw, 0x24), 0x400)  # pyright: ignore[reportOptionalMemberAccess]
