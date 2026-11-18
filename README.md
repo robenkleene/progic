@@ -99,7 +99,7 @@ uv tool install git+<repository-url>   # or `uv tool install .` from a checkout
 progic skill --install
 ```
 
-`pipx install` and `pip3 install` work the same way. Installed copies update (e.g. with `pip3 install --upgrade git+<repository-url>`) only when the version changes, so bump `__version__` in `src/progic/__init__.py` to release changes. For development, run it from a checkout with `PYTHONPATH=src python3 -m progic`.
+`pipx install` and `pip3 install` work the same way. For development, run it from a checkout with `PYTHONPATH=src python3 -m progic`.
 
 ## How It Works
 
