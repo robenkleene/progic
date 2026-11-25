@@ -45,6 +45,16 @@ class TrackTest(unittest.TestCase):
                 # The UUID link to the channel strip survives the resize.
                 self.assertIsNotNone(T.find_track(pd, 3).strip)
 
+    def test_rename_track_named_after_its_patch(self) -> None:
+        # Logic 13 names a new instrument track after its patch ("Untitled"
+        # without one) until it's renamed, which Logic saved here
+        pd = load("L13_abstract")
+        T.rename(T.find_track(pd, 1), "Mania Depth")
+        ours = T.find_track(reparse(pd), 1).ivne.raw
+        logic = T.find_track(load("L13_abstract_renamed"), 1).ivne.raw
+        self.assertEqual(ours[0x84], logic[0x84])
+        self.assertEqual(ours[0xC2:0xD0], logic[0xC2:0xD0])
+
     def test_find_track_errors(self) -> None:
         pd = load("mixed_template_2inst")
         with self.assertRaises(T.TrackError):

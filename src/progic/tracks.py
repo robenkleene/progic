@@ -26,6 +26,8 @@ MASTER_CHANNEL = 0x500000
 _KART_CHANNEL = 0x2A
 _IVNE_NAME_LEN = 0xC2
 _IVNE_NAME = 0xC4
+_IVNE_NAME_FROM_PATCH = 0x84
+_IVNE_NAME_FROM_PATCH_BIT = 0x80
 _OCUA_UUID = 0xBD
 _OCUA_MAGIC = 0x1235
 
@@ -220,6 +222,10 @@ def rename(track: Track, name: str) -> None:
     # Bit 0 of +0x51 is set on channels Logic has renamed (bit 1 is a separate
     # flag that is set on every channel but the last).
     raw[0x51] |= 0x01
+    # Bit 7 of +0x84 names the track after its patch instead (e.g., "Untitled"
+    # for an instrument with no patch), which Logic 13 sets on new instrument
+    # channels and clears on a rename
+    raw[_IVNE_NAME_FROM_PATCH] &= ~_IVNE_NAME_FROM_PATCH_BIT & 0xFF
     raw[_IVNE_NAME_LEN:_IVNE_NAME + n + (n & 1)] = field_bytes
     track.ivne.raw = Record(track.ivne.tag, bytes(raw)).with_payload(bytes(raw[REC_HEADER_SIZE:])).raw
     track.name = name
