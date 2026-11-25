@@ -44,7 +44,7 @@ A minimal edit file:
 
 ### `progic inspect PROJECT [--notes] [--text]`
 
-Prints the tempo map, meter map, markers, and every track with its number, name, kind (`instrument`, `audio`, `aux`, ...), volume, pan, plugins, and MIDI regions. It also reports `can_add_tracks`, with `free_instrument_strips` (how many tracks can be added) or `cannot_add_tracks_reason`. JSON by default; `--text` for a compact summary; `--notes` to include every note.
+Prints the tempo map, meter map, project end, markers, and every track with its number, name, kind (`instrument`, `audio`, `aux`, ...), volume, pan, plugins, and MIDI regions. It also reports `can_add_tracks`, with `free_instrument_strips` (how many tracks can be added) or `cannot_add_tracks_reason`. JSON by default; `--text` for a compact summary; `--notes` to include every note.
 
 ### `progic apply PROJECT EDITS (-o OUTPUT | --in-place | --dry-run) [--force]`
 
@@ -60,6 +60,7 @@ Prints the full edit file reference. The edit file can set:
 
 - `meter`: one signature (`"4/4"`) or a list of changes by bar
 - `tempo`: one BPM or a list of changes by bar and beat
+- `end`: the project end marker, where exporting stops
 - `markers`: the complete list of markers (replaces existing ones)
 - `tracks`: per track, a new `name`, `volume` and `pan` (0-127), `clear_regions`, and new MIDI `regions`; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
 

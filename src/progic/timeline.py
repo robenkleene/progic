@@ -46,6 +46,9 @@ _MARKER_NAME_HEADER = bytes.fromhex(
     "7153785401002000000004000000ffffffffffffffff020000000200e401000000000000"
 )
 _GNOS_MARKER_RANGE = 0x24 + 0x1D0
+# The project end marker, where exporting and bouncing stop (bar 129 in a new
+# project). There's a copy at `0x24 + 0x43c`, which Logic ignores.
+_GNOS_END = 0x24 + 0x180
 
 
 class TimelineError(Exception):
@@ -313,6 +316,22 @@ def set_markers(pd: ProjectData, new_markers: list[Marker]) -> None:
         put_u32(g, _GNOS_MARKER_RANGE, POS_ORIGIN)
         put_u32(g, _GNOS_MARKER_RANGE + 8, POS_ORIGIN + items[-1].tick)
         pd.song.raw = bytes(g)
+
+
+# --- project end ------------------------------------------------------------
+
+
+def project_end(pd: ProjectData) -> int:
+    """The project end marker's position, where exporting stops."""
+    return u32(pd.song.raw, _GNOS_END) - POS_ORIGIN
+
+
+def set_project_end(pd: ProjectData, tick: int) -> None:
+    if tick <= 0:
+        raise TimelineError("the project end must be after bar 1")
+    g = bytearray(pd.song.raw)
+    put_u32(g, _GNOS_END, POS_ORIGIN + tick)
+    pd.song.raw = bytes(g)
 
 
 # --- bar/tick conversion ----------------------------------------------------

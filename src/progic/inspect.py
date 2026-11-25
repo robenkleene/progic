@@ -87,6 +87,7 @@ def inspect(pd: ProjectData, *, notes: bool = False) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "tempo": [{**position(tm, p.tick), "bpm": _round(p.bpm)} for p in timeline.tempo_map(pd)],
         "meter": [{**position(tm, p.tick), "signature": f"{p.numerator}/{p.denominator}"} for p in meter],
+        "end": position(tm, timeline.project_end(pd)),
         "has_marker_track": timeline.has_marker_track(pd),
         "markers": [{**position(tm, m.tick), "name": m.name} for m in timeline.markers(pd)],
         "can_add_tracks": cannot_add is None,
@@ -106,6 +107,7 @@ def text(summary: dict[str, Any]) -> str:
     meter = ", ".join(f"{p['signature']} @ bar {p['bar']}" for p in summary["meter"])
     lines.append(f"Tempo: {tempo}")
     lines.append(f"Meter: {meter}")
+    lines.append(f"End: bar {summary['end']['bar']} beat {summary['end']['beat']}")
     if summary["has_marker_track"]:
         markers = ", ".join(f"{m['name']!r} @ bar {m['bar']}" for m in summary["markers"]) or "none"
         lines.append(f"Markers: {markers}")

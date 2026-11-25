@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from progic import edits
+from progic import edits, timeline
 from progic.bundle import Bundle
 from progic.cli import main
 from progic.container import ProjectData
@@ -106,6 +106,14 @@ class ApplyTest(unittest.TestCase):
         self.assertEqual(summary["meter"][1], {"bar": 3, "beat": 1, "signature": "3/4"})
         self.assertEqual(summary["tracks"][0]["regions"][0]["bar"], 4)
 
+    def test_project_end(self) -> None:
+        # A new project ends at bar 129
+        self.assertEqual(inspect(load("L13_abstract"))["end"], {"bar": 129, "beat": 1})
+        pd = load("L13_abstract")
+        edits.apply(pd, {"meter": "3/4", "end": {"bar": 9}})
+        self.assertEqual(inspect(ProjectData.parse(pd.serialize()))["end"], {"bar": 9, "beat": 1})
+        self.assertEqual(timeline.project_end(pd), 8 * 3 * 960)
+
     def test_clear_regions(self) -> None:
         pd = load("F22_multimidi")
         edits.apply(pd, {"tracks": [{"track": 2, "clear_regions": True}]})
@@ -120,6 +128,8 @@ class ApplyTest(unittest.TestCase):
             ({"tracks": [{"track": 1, "regions": [{"bar": 0}]}]}, "tracks[0].regions[0]: bar and beat are 1-based"),
             ({"meter": "4/3"}, "meter: time signature denominator 3"),
             ({"tracks": [{"track": 1, "colour": "red"}]}, "tracks[0]: unknown keys: colour"),
+            ({"end": 9}, "end must be an object"),
+            ({"end": {"bar": 1}}, "end: the project end must be after bar 1"),
         ]
         for doc, message in cases:
             with self.subTest(message), self.assertRaises(edits.EditError) as ctx:

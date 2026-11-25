@@ -27,6 +27,8 @@ are allowed.
              // [{"bar": 1, "signature": "4/4"}, {"bar": 33, "signature": "7/8"}]
   "tempo":   138,                            // or a list of changes:
              // [{"bar": 1, "bpm": 138}, {"bar": 65, "beat": 3, "bpm": 140}]
+  "end":     {"bar": 9},                     // the project end marker, where
+                                             //   exporting stops
   "markers": [                               // REPLACES all markers
     {"bar": 1, "name": "Intro"},
     {"bar": 17, "name": "Breakdown"}
@@ -67,7 +69,8 @@ Added tracks go after the last track, in the order given. Their channel
 strip is empty: no instrument or plugins are loaded, so the user has to
 choose a sound for them in Logic.
 
-Order of application: meter, tempo, markers, then tracks in the order given.
+Order of application: meter, tempo, end, markers, then tracks in the order
+given.
 Bar positions are resolved against the meter after the "meter" edit. Track
 references are resolved before any renames, so "track" always uses names
 as they were in the input project.
@@ -233,7 +236,7 @@ def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
     if not isinstance(edits, dict):
         raise EditError("edit file must be a JSON object")
     doc: dict[str, Any] = edits  # type: ignore[assignment]
-    unknown = set(doc) - {"meter", "tempo", "markers", "tracks"}
+    unknown = set(doc) - {"meter", "tempo", "end", "markers", "tracks"}
     if unknown:
         raise EditError(f"unknown top-level keys: {', '.join(sorted(unknown))}")
     summary: dict[str, Any] = {}
@@ -243,6 +246,14 @@ def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
     tm = TimeMap(timeline.meter_map(pd))
     if "tempo" in doc:
         summary["tempo"] = [p.bpm for p in _apply_tempo(pd, tm, doc["tempo"])]
+    if "end" in doc:
+        if not isinstance(doc["end"], dict):
+            raise EditError("end must be an object like {\"bar\": 9}")
+        try:
+            timeline.set_project_end(pd, _tick(tm, doc["end"], "end"))
+        except timeline.TimelineError as e:
+            raise EditError(f"end: {e}") from e
+        summary["end"] = doc["end"]
     if "markers" in doc:
         summary["markers"] = _apply_markers(pd, tm, doc["markers"])
 
