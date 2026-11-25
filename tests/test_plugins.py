@@ -46,12 +46,20 @@ class PluginTest(unittest.TestCase):
         edits.apply(pd, {"tracks": [{"track": 2, "plugins": [{"plugin": 4, "params": {"key": 2}}]}]})
         self.assertEqual(plugins.params(plugin(pd, 2, "Purpose").record)["key"], 2.0)  # type: ignore[arg-type,index]
 
+    def test_removes_plugin(self) -> None:
+        pd = load("L13_abstract")
+        edits.apply(pd, {"tracks": [{"track": 1, "plugins": [{"plugin": "Mania", "remove": True}]}]})
+        pd = ProjectData.parse(pd.serialize())
+        self.assertEqual([p.name for p in T.find_track(pd, 1).plugins], ["Depth"])
+        self.assertEqual([p.name for p in T.find_track(pd, 2).plugins], ["E-Piano", "Purpose"])
+
     def test_errors(self) -> None:
         cases = [
             ({"plugin": "Mania", "params": {"swng": 1}}, 1, "no parameter 'swng' (did you mean 'swing'"),
             ({"plugin": "Nope", "params": {}}, 1, "has no plugin 'Nope' (plugins: Depth (slot 2), Mania (slot 4))"),
             ({"plugin": "E-Piano", "params": {"a": 1}}, 2, "isn't a JUCE plugin"),
             ({"plugin": "Mania", "params": {"swing": "x"}}, 1, "'swing' must be a number"),
+            ({"plugin": "Mania", "params": {}, "remove": True}, 1, "give 'params' or 'remove', not both"),
         ]
         for entry, track, message in cases:
             with self.subTest(message), self.assertRaises(edits.EditError) as ctx:

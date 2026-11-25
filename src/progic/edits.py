@@ -45,7 +45,8 @@ are allowed.
           "plugin": "Mania",                 // its name, or slot number
           "params": {"swing": 30}            // by id, real values (not 0-1);
                                              //   `progic inspect --params`
-        }
+        },
+        {"plugin": "Chorus", "remove": true} // or remove a plugin
       ],
       "clear_regions": true,                 // delete existing MIDI regions first
       "regions": [                           // ADD MIDI regions (instrument tracks)
@@ -84,7 +85,7 @@ as they were in the input project.
 
 Requirements:
   - "plugins" can set the parameters of plugins built with JUCE, which
-    `progic inspect` marks "juce": true.
+    `progic inspect` marks "juce": true. It can remove any plugin.
   - "markers" needs a project with a marker track (in Logic: add a marker,
     delete it, save). `progic inspect` reports "has_marker_track".
   - "regions" need instrument tracks.
@@ -255,20 +256,28 @@ def _plugin(track: tracks.Track, ref: Any, where: str) -> tracks.Plugin:
     return found[0]
 
 
-def _apply_plugins(track: tracks.Track, value: Any, where: str) -> list[dict[str, Any]]:
+def _apply_plugins(pd: ProjectData, track: tracks.Track, value: Any, where: str) -> list[dict[str, Any]]:
     done: list[dict[str, Any]] = []
     for i, pe in enumerate(_changes(value, where)):
         pw = f"{where}[{i}]"
-        unknown = set(pe) - {"plugin", "params"}
+        unknown = set(pe) - {"plugin", "params", "remove"}
         if unknown:
             raise EditError(f"{pw}: unknown keys: {', '.join(sorted(unknown))}")
         plugin = _plugin(track, pe.get("plugin"), pw)
+        assert plugin.record is not None
+        if pe.get("remove"):
+            if "params" in pe:
+                raise EditError(f"{pw}: give 'params' or 'remove', not both")
+            # The plugin is its slot's record, which Logic loads without
+            pd.records.remove(plugin.record)
+            track.plugins.remove(plugin)
+            done.append({"plugin": plugin.name, "slot": plugin.slot, "removed": True})
+            continue
         values = pe.get("params", {})
         if not isinstance(values, dict):
             raise EditError(f"{pw}: 'params' must be an object of parameter ids and values")
         for name in values:
             _number(values, name, f"{pw}.params")
-        assert plugin.record is not None
         try:
             plugins.set_params(plugin.record, {k: float(v) for k, v in values.items()})
         except plugins.PluginError as e:
@@ -354,7 +363,7 @@ def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
                     tracks.set_mixer(track, volume=volume, pan=pan)
                     result["mixer"] = {k: v for k, v in (("volume", volume), ("pan", pan)) if v is not None}
                 if "plugins" in te:
-                    result["plugins"] = _apply_plugins(track, te["plugins"], f"{where}.plugins")
+                    result["plugins"] = _apply_plugins(pd, track, te["plugins"], f"{where}.plugins")
                 added = 0
                 for j, r in enumerate(_changes(te.get("regions", []), f"{where}.regions")):
                     _region(pd, tm, track, r, f"{where}.regions[{j}]")
