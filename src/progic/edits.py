@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from . import addtrack, regions, timeline, tracks
+from . import addtrack, plugins, regions, timeline, tracks
 from .container import ProjectData
 from .timeline import PPQ, MeterPoint, TimeMap
 
@@ -40,6 +40,13 @@ are allowed.
       "name": "Lead",                        // rename
       "volume": 100,                         // fader, 0-127 (90 = 0 dB default)
       "pan": 64,                             // 0 = left, 64 = center, 127 = right
+      "plugins": [                           // set plugin parameters
+        {
+          "plugin": "Mania",                 // its name, or slot number
+          "params": {"swing": 30}            // by id, real values (not 0-1);
+                                             //   `progic inspect --params`
+        }
+      ],
       "clear_regions": true,                 // delete existing MIDI regions first
       "regions": [                           // ADD MIDI regions (instrument tracks)
         {
@@ -76,6 +83,8 @@ references are resolved before any renames, so "track" always uses names
 as they were in the input project.
 
 Requirements:
+  - "plugins" can set the parameters of plugins built with JUCE, which
+    `progic inspect` marks "juce": true.
   - "markers" needs a project with a marker track (in Logic: add a marker,
     delete it, save). `progic inspect` reports "has_marker_track".
   - "regions" need instrument tracks.
@@ -231,6 +240,43 @@ def _region(pd: ProjectData, tm: TimeMap, track: tracks.Track, obj: dict[str, An
         raise EditError(f"{where}: {e}") from e
 
 
+def _plugin(track: tracks.Track, ref: Any, where: str) -> tracks.Plugin:
+    if isinstance(ref, int) and not isinstance(ref, bool):
+        found = [p for p in track.plugins if p.slot == ref]
+    elif isinstance(ref, str):
+        found = [p for p in track.plugins if p.name == ref]
+    else:
+        raise EditError(f"{where}: 'plugin' must be a plugin's name or slot number")
+    if not found:
+        have = ", ".join(f"{p.name or '?'} (slot {p.slot})" for p in track.plugins) or "none"
+        raise EditError(f"{where}: track {track.name!r} has no plugin {ref!r} (plugins: {have})")
+    if len(found) > 1:
+        raise EditError(f"{where}: track {track.name!r} has {len(found)} plugins named {ref!r}; use its slot number")
+    return found[0]
+
+
+def _apply_plugins(track: tracks.Track, value: Any, where: str) -> list[dict[str, Any]]:
+    done: list[dict[str, Any]] = []
+    for i, pe in enumerate(_changes(value, where)):
+        pw = f"{where}[{i}]"
+        unknown = set(pe) - {"plugin", "params"}
+        if unknown:
+            raise EditError(f"{pw}: unknown keys: {', '.join(sorted(unknown))}")
+        plugin = _plugin(track, pe.get("plugin"), pw)
+        values = pe.get("params", {})
+        if not isinstance(values, dict):
+            raise EditError(f"{pw}: 'params' must be an object of parameter ids and values")
+        for name in values:
+            _number(values, name, f"{pw}.params")
+        assert plugin.record is not None
+        try:
+            plugins.set_params(plugin.record, {k: float(v) for k, v in values.items()})
+        except plugins.PluginError as e:
+            raise EditError(f"{pw}: {plugin.name or 'plugin'} (slot {plugin.slot}): {e}") from e
+        done.append({"plugin": plugin.name, "slot": plugin.slot, "params": len(values)})
+    return done
+
+
 def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
     """Apply `edits` (parsed JSON) to `pd`. Returns a summary of what changed."""
     if not isinstance(edits, dict):
@@ -265,7 +311,7 @@ def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
         targets: list[tracks.Track | None] = []
         for i, te in enumerate(track_edits):
             where = f"tracks[{i}]"
-            unknown = set(te) - {"track", "add", "name", "volume", "pan", "clear_regions", "regions"}
+            unknown = set(te) - {"track", "add", "name", "volume", "pan", "plugins", "clear_regions", "regions"}
             if unknown:
                 raise EditError(f"{where}: unknown keys: {', '.join(sorted(unknown))}")
             if ("track" in te) == ("add" in te):
@@ -307,13 +353,15 @@ def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
                     pan = int(_number(te, "pan", where)) if "pan" in te else None
                     tracks.set_mixer(track, volume=volume, pan=pan)
                     result["mixer"] = {k: v for k, v in (("volume", volume), ("pan", pan)) if v is not None}
+                if "plugins" in te:
+                    result["plugins"] = _apply_plugins(track, te["plugins"], f"{where}.plugins")
                 added = 0
                 for j, r in enumerate(_changes(te.get("regions", []), f"{where}.regions")):
                     _region(pd, tm, track, r, f"{where}.regions[{j}]")
                     added += 1
                 if added:
                     result["regions_added"] = added
-            except (tracks.TrackError, regions.RegionError) as e:
+            except (tracks.TrackError, regions.RegionError, plugins.PluginError) as e:
                 raise EditError(f"{where}: {e}") from e
             done.append(result)
         summary["tracks"] = done

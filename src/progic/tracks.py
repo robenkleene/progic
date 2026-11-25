@@ -60,6 +60,8 @@ class Plugin:
     au_type: str | None = None
     au_subtype: str | None = None
     au_manufacturer: str | None = None
+    record: Record | None = field(default=None, repr=False, compare=False)
+    """The plugin slot record, which has its state."""
 
 
 @dataclass
@@ -164,6 +166,7 @@ def _plugins(pd: ProjectData, strip_id: int) -> list[Plugin]:
                 au_type=None if native else code(0x88),
                 au_subtype=None if native else code(0x8C),
                 au_manufacturer=None if native else code(0x84),
+                record=r,
             )
         )
     return sorted(out, key=lambda p: p.slot)

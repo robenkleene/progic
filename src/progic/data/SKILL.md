@@ -5,7 +5,7 @@ description: Create and edit Logic Pro projects (.logicx) with the `progic` CLI,
 
 # Progic
 
-`progic` edits Logic Pro projects without Logic. It works from a template made in Logic: the template's tracks supply instruments and plugins, and progic writes tempo, time signatures, markers, track names, volume and pan, and MIDI regions. It can also add empty software instrument tracks.
+`progic` edits Logic Pro projects without Logic. It works from a template made in Logic: the template's tracks supply instruments and plugins, and progic writes tempo, time signatures, markers, track names, volume and pan, the parameters of plugins built with JUCE, and MIDI regions. It can also add empty software instrument tracks.
 
 ## Workflow
 
@@ -24,6 +24,7 @@ Never overwrite the user's template; always write to a new path with `-o` unless
 - Choose tracks by their instrument and plugins from `inspect` (e.g. put a bass line on the track with a bass patch), and rename them to match their role.
 - If the template lacks a track you need and `can_add_tracks` is true, add one with `{"add": "instrument", "name": ...}`. Added tracks have no instrument loaded, so tell the user which added tracks need a sound and what kind. Prefer an existing track with a suitable sound over adding one.
 - MIDI regions only go on `instrument` tracks.
+- Plugins built with JUCE (`"juce": true` in `inspect`) have their parameters set with a track's `plugins`, by id with real values (not 0-1). `progic inspect --params` lists the ids and current values. Unknown ids are an error, with the closest ids suggested.
 - `markers` replaces all markers and needs `has_marker_track: true`.
 - `tempo` and `meter` replace the whole map.
 - `end` moves the project end marker, where exporting stops (bar 129 in a new project). Set it to the end of the song so exports aren't padded with the rest.

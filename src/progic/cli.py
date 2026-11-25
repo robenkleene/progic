@@ -32,8 +32,10 @@ INSPECT_HELP = """\
 Print a project summary as JSON (or text with --text): tempo map, meter
 map, markers, and each track with its number, name, kind (instrument,
 audio, aux, ...), volume, pan, plugins, and MIDI regions. Positions are
-1-based bars and beats. Use --notes to include every note. It also reports
-whether tracks can be added to the project (can_add_tracks)."""
+1-based bars and beats. Use --notes to include every note, and --params
+to include the parameters of plugins built with JUCE ("juce": true), which
+`apply` can set. It also reports whether tracks can be added to the project
+(can_add_tracks)."""
 
 APPLY_HELP = """\
 Apply a JSON edit file to a project. See `progic edit-format` for the
@@ -82,7 +84,7 @@ def _sync_metadata(bundle: Bundle, pd: ProjectData) -> None:
 
 def cmd_inspect(args: argparse.Namespace) -> int:
     _, pd = _load(args.project)
-    summary = inspect.inspect(pd, notes=args.notes)
+    summary = inspect.inspect(pd, notes=args.notes, params=args.params)
     print(inspect.text(summary) if args.text else json.dumps(summary, indent=2))
     return 0
 
@@ -142,6 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("inspect", help="summarize a project as JSON", description=INSPECT_HELP, formatter_class=raw)
     p.add_argument("project", help="path to a .logicx project")
     p.add_argument("--notes", action="store_true", help="include every note of every region")
+    p.add_argument("--params", action="store_true", help="include the parameters of plugins built with JUCE")
     p.add_argument("--text", action="store_true", help="human-readable text instead of JSON")
     p.set_defaults(func=cmd_inspect)
 

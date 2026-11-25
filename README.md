@@ -2,7 +2,7 @@
 
 Progic is a command-line tool for creating and editing Logic Pro projects (`.logicx`) without Logic. It's designed to be driven by LLM agents: every command takes or prints JSON, positions are musical (bars, beats, quarter notes), and errors say exactly which part of the input was wrong.
 
-You build a template in Logic with the tracks, instruments, and plugins you want. Progic then writes the musical content around it: tempo, time signatures, markers, track names, mixer settings, and MIDI regions with notes. It can also add empty software instrument tracks.
+You build a template in Logic with the tracks, instruments, and plugins you want. Progic then writes the musical content around it: tempo, time signatures, markers, track names, mixer settings, the parameters of plugins built with JUCE, and MIDI regions with notes. It can also add empty software instrument tracks.
 
 ## Quick Start for Agents
 
@@ -42,9 +42,9 @@ A minimal edit file:
 
 ## Commands
 
-### `progic inspect PROJECT [--notes] [--text]`
+### `progic inspect PROJECT [--notes] [--params] [--text]`
 
-Prints the tempo map, meter map, project end, markers, and every track with its number, name, kind (`instrument`, `audio`, `aux`, ...), volume, pan, plugins, and MIDI regions. It also reports `can_add_tracks`, with `free_instrument_strips` (how many tracks can be added) or `cannot_add_tracks_reason`. JSON by default; `--text` for a compact summary; `--notes` to include every note.
+Prints the tempo map, meter map, project end, markers, and every track with its number, name, kind (`instrument`, `audio`, `aux`, ...), volume, pan, plugins, and MIDI regions. It also reports `can_add_tracks`, with `free_instrument_strips` (how many tracks can be added) or `cannot_add_tracks_reason`. JSON by default; `--text` for a compact summary; `--notes` to include every note; `--params` to include the parameters of plugins built with JUCE (marked `"juce": true`).
 
 ### `progic apply PROJECT EDITS (-o OUTPUT | --in-place | --dry-run) [--force]`
 
@@ -62,7 +62,7 @@ Prints the full edit file reference. The edit file can set:
 - `tempo`: one BPM or a list of changes by bar and beat
 - `end`: the project end marker, where exporting stops
 - `markers`: the complete list of markers (replaces existing ones)
-- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), `clear_regions`, and new MIDI `regions`; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
+- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), plugin `params` (for plugins built with JUCE), `clear_regions`, and new MIDI `regions`; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
 
 ### `progic skill [--install [DIR]]`
 
@@ -116,6 +116,7 @@ The format is undocumented and changes between Logic releases. Most test fixture
 - `src/progic/bundle.py`: the `.logicx` folder, plists, and copying
 - `src/progic/timeline.py`: tempo, meter, markers, and bar/tick conversion
 - `src/progic/tracks.py`: tracks, channel strips, plugins, renaming, mixer
+- `src/progic/plugins.py`: the state of plugins built with JUCE, and their parameters
 - `src/progic/addtrack.py`: adding software instrument tracks
 - `src/progic/regions.py`: MIDI regions and notes
 - `src/progic/inspect.py`: the `inspect` summary

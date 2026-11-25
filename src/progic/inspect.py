@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import addtrack, regions, timeline, tracks
+from . import addtrack, plugins, regions, timeline, tracks
 from .container import ProjectData
 from .timeline import PPQ, TimeMap
 
@@ -39,7 +39,7 @@ def _length_bars(tm: TimeMap, tick: int, length: int) -> float | int:
     return _round(bars)
 
 
-def plugin_json(p: tracks.Plugin) -> dict[str, Any]:
+def plugin_json(p: tracks.Plugin, *, params: bool = False) -> dict[str, Any]:
     out: dict[str, Any] = {"slot": p.slot, "name": p.name}
     if p.native:
         out["native"] = True
@@ -47,6 +47,11 @@ def plugin_json(p: tracks.Plugin) -> dict[str, Any]:
         out["audio_unit"] = f"{p.au_type}/{p.au_subtype}/{p.au_manufacturer}"
     if p.preset:
         out["preset"] = p.preset
+    values = None if p.record is None else plugins.params(p.record)
+    if values is not None:
+        out["juce"] = True
+        if params:
+            out["params"] = {k: _round(v) for k, v in values.items()}
     return out
 
 
@@ -54,7 +59,7 @@ def note_json(n: regions.Note) -> dict[str, Any]:
     return {"start": _round(n.tick / PPQ), "length": _round(n.length / PPQ), "pitch": n.pitch, "velocity": n.velocity}
 
 
-def inspect(pd: ProjectData, *, notes: bool = False) -> dict[str, Any]:
+def inspect(pd: ProjectData, *, notes: bool = False, params: bool = False) -> dict[str, Any]:
     meter = timeline.meter_map(pd)
     tm = TimeMap(meter)
     by_track: dict[int, list[regions.MidiRegion]] = {}
@@ -67,7 +72,7 @@ def inspect(pd: ProjectData, *, notes: bool = False) -> dict[str, Any]:
         if t.strip is not None:
             entry["volume"] = t.volume
             entry["pan"] = t.pan
-        entry["plugins"] = [plugin_json(p) for p in t.plugins]
+        entry["plugins"] = [plugin_json(p, params=params) for p in t.plugins]
         region_list: list[dict[str, Any]] = []
         for r in by_track.get(t.number, []):
             region: dict[str, Any] = {
