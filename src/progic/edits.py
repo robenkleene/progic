@@ -248,18 +248,12 @@ def _region(pd: ProjectData, tm: TimeMap, track: tracks.Track, obj: dict[str, An
 
 
 def _plugin(track: tracks.Track, ref: Any, where: str) -> tracks.Plugin:
-    if isinstance(ref, int) and not isinstance(ref, bool):
-        found = [p for p in track.plugins if p.slot == ref]
-    elif isinstance(ref, str):
-        found = [p for p in track.plugins if p.name == ref]
-    else:
+    if not isinstance(ref, (int, str)) or isinstance(ref, bool):
         raise EditError(f"{where}: 'plugin' must be a plugin's name or slot number")
-    if not found:
-        have = ", ".join(f"{p.name or '?'} (slot {p.slot})" for p in track.plugins) or "none"
-        raise EditError(f"{where}: track {track.name!r} has no plugin {ref!r} (plugins: {have})")
-    if len(found) > 1:
-        raise EditError(f"{where}: track {track.name!r} has {len(found)} plugins named {ref!r}; use its slot number")
-    return found[0]
+    try:
+        return tracks.find_plugin(track, ref)
+    except tracks.TrackError as e:
+        raise EditError(f"{where}: {e}") from e
 
 
 def _apply_plugins(pd: ProjectData, track: tracks.Track, value: Any, where: str) -> list[dict[str, Any]]:

@@ -210,6 +210,24 @@ def find_track(pd: ProjectData, ref: str | int) -> Track:
     return matches[0]
 
 
+def find_plugin(track: Track, ref: object) -> Plugin:
+    """Look up one of a track's plugins by name or slot number."""
+    if isinstance(ref, str) and ref.isdigit():
+        ref = int(ref)
+    if isinstance(ref, int) and not isinstance(ref, bool):
+        found = [p for p in track.plugins if p.slot == ref]
+    elif isinstance(ref, str):
+        found = [p for p in track.plugins if p.name == ref]
+    else:
+        raise TrackError("a plugin is its name or slot number")
+    if not found:
+        have = ", ".join(f"{p.name or '?'} (slot {p.slot})" for p in track.plugins) or "none"
+        raise TrackError(f"track {track.name!r} has no plugin {ref!r} (plugins: {have})")
+    if len(found) > 1:
+        raise TrackError(f"track {track.name!r} has {len(found)} plugins named {ref!r}; use its slot number")
+    return found[0]
+
+
 def rename(track: Track, name: str) -> None:
     """Rename a track. Logic stores the track name on its environment channel
     (`ivnE`), which is what Logic itself changes on a rename."""

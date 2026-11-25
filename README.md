@@ -50,6 +50,10 @@ Prints the tempo map, meter map, project end, markers, and every track with its 
 
 Applies a JSON edit file (`-` reads it from stdin). With `-o` the project is copied to `OUTPUT` first; with `--in-place` the input is modified; with `--dry-run` nothing is written. All edits are validated in memory before anything is written, so a failed `apply` changes nothing. Prints a JSON summary of the changes.
 
+### `progic plugin-state PROJECT TRACK PLUGIN [-o OUTPUT]`
+
+Prints the state of a plugin built with JUCE (`"juce": true` in `inspect`), the XML its `getStateInformation` saves, as Logic restores it. The track is its name or number, the plugin its name or slot. E.g., to render the plugin offline with the same settings, or compare its settings between projects.
+
 ### `progic new TEMPLATE OUTPUT [--force]`
 
 Copies a template to a new project, leaving out Logic's backup folders.
@@ -116,7 +120,7 @@ The format is undocumented and changes between Logic releases. Most test fixture
 - `src/progic/bundle.py`: the `.logicx` folder, plists, and copying
 - `src/progic/timeline.py`: tempo, meter, markers, and bar/tick conversion
 - `src/progic/tracks.py`: tracks, channel strips, plugins, renaming, mixer
-- `src/progic/plugins.py`: the state of plugins built with JUCE, and their parameters
+- `src/progic/plugins.py`: the state of plugins built with JUCE, their parameters, and copying a plugin
 - `src/progic/addtrack.py`: adding software instrument tracks
 - `src/progic/regions.py`: MIDI regions and notes
 - `src/progic/inspect.py`: the `inspect` summary

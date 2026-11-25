@@ -9,7 +9,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from . import __version__, edits, inspect, timeline
+from . import __version__, edits, inspect, plugins, timeline, tracks
 from .bundle import Bundle, BundleError
 from .container import ProjectData
 
@@ -36,6 +36,11 @@ audio, aux, ...), volume, pan, plugins, and MIDI regions. Positions are
 to include the parameters of plugins built with JUCE ("juce": true), which
 `apply` can set. It also reports whether tracks can be added to the project
 (can_add_tracks)."""
+
+PLUGIN_STATE_HELP = """\
+Print the state of a plugin built with JUCE (`inspect` marks them
+"juce": true), the XML its getStateInformation saves, as Logic restores it,
+e.g., to render the plugin offline with the same settings."""
 
 APPLY_HELP = """\
 Apply a JSON edit file to a project. See `progic edit-format` for the
@@ -86,6 +91,22 @@ def cmd_inspect(args: argparse.Namespace) -> int:
     _, pd = _load(args.project)
     summary = inspect.inspect(pd, notes=args.notes, params=args.params)
     print(inspect.text(summary) if args.text else json.dumps(summary, indent=2))
+    return 0
+
+
+def cmd_plugin_state(args: argparse.Namespace) -> int:
+    _, pd = _load(args.project)
+    try:
+        plugin = tracks.find_plugin(tracks.find_track(pd, args.track), args.plugin)
+    except tracks.TrackError as e:
+        raise CliError(str(e)) from e
+    xml = None if plugin.record is None else plugins.state_xml(plugin.record)
+    if xml is None:
+        raise CliError(f"{plugin.name or 'the plugin'} isn't a JUCE plugin with its state saved")
+    if args.output:
+        Path(args.output).write_text(xml)
+    else:
+        print(xml)
     return 0
 
 
@@ -162,6 +183,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("output", help="path of the new .logicx project")
     p.add_argument("--force", action="store_true", help="overwrite OUTPUT if it exists")
     p.set_defaults(func=cmd_new)
+
+    p = sub.add_parser(
+        "plugin-state", help="print a JUCE plugin's state XML", description=PLUGIN_STATE_HELP, formatter_class=raw
+    )
+    p.add_argument("project", help="path to a .logicx project")
+    p.add_argument("track", help="the track's name or 1-based number")
+    p.add_argument("plugin", help="the plugin's name or slot number")
+    p.add_argument("-o", "--output", help="write the XML to OUTPUT instead of printing it")
+    p.set_defaults(func=cmd_plugin_state)
 
     p = sub.add_parser("edit-format", help="print the JSON edit file reference")
     p.set_defaults(func=cmd_edit_format)

@@ -179,6 +179,22 @@ class CliTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("only one of", stderr)
 
+    def test_plugin_state(self) -> None:
+        code, stdout, _ = run("plugin-state", str(fixture("L13_abstract")), "1", "Mania")
+        self.assertEqual(code, 0)
+        self.assertIn('<Mania version="1"', stdout)
+        self.assertIn('<PARAM id="track1_enabled" value="1.0"/>', stdout)
+        out = self.tmp / "state.xml"
+        code, _, _ = run("plugin-state", str(fixture("L13_abstract")), "2", "4", "-o", str(out))
+        self.assertEqual(code, 0)
+        self.assertIn("<Purpose", out.read_text())
+        code, _, stderr = run("plugin-state", str(fixture("L13_abstract")), "2", "E-Piano")
+        self.assertEqual(code, 1)
+        self.assertIn("isn't a JUCE plugin", stderr)
+        code, _, stderr = run("plugin-state", str(fixture("L13_abstract")), "1", "Nope")
+        self.assertEqual(code, 1)
+        self.assertIn("has no plugin 'Nope'", stderr)
+
     def test_dry_run_needs_no_output(self) -> None:
         edit_path = self.tmp / "edits.json"
         edit_path.write_text(json.dumps({"tempo": 90}))

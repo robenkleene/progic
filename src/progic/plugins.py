@@ -80,6 +80,14 @@ def _juce_xml(state: dict) -> bytes | None:
     return blob[8:8 + n]
 
 
+def state_xml(record: Record) -> str | None:
+    """A JUCE plugin's state, the XML its `getStateInformation` saves, or
+    `None` for any other plugin."""
+    state = _state(record.raw)
+    xml = None if state is None else _juce_xml(state)
+    return None if xml is None else xml.decode("utf-8")
+
+
 def params(record: Record) -> dict[str, float] | None:
     """A JUCE plugin's parameters, by id, or `None` for any other plugin."""
     state = _state(record.raw)
