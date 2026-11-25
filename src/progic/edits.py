@@ -7,6 +7,7 @@ caller writes the project only if everything succeeded.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from typing import Any
 
@@ -46,7 +47,10 @@ are allowed.
           "params": {"swing": 30}            // by id, real values (not 0-1);
                                              //   `progic inspect --params`
         },
-        {"plugin": "Chorus", "remove": true} // or remove a plugin
+        {"plugin": "Chorus", "remove": true},// or remove a plugin
+        {"plugin": "Arpeggiator",            // or replace it with a copy of
+         "replace_with": {"track": 2,        //   another track's, with its
+                          "plugin": "Purpose"}} //   settings
       ],
       "clear_regions": true,                 // delete existing MIDI regions first
       "regions": [                           // ADD MIDI regions (instrument tracks)
@@ -85,7 +89,9 @@ as they were in the input project.
 
 Requirements:
   - "plugins" can set the parameters of plugins built with JUCE, which
-    `progic inspect` marks "juce": true. It can remove any plugin.
+    `progic inspect` marks "juce": true. It can remove any plugin, or
+    replace it with a copy of another of the same kind (e.g., a MIDI effect
+    with a MIDI effect).
   - "markers" needs a project with a marker track (in Logic: add a marker,
     delete it, save). `progic inspect` reports "has_marker_track".
   - "regions" need instrument tracks.
@@ -260,14 +266,29 @@ def _apply_plugins(pd: ProjectData, track: tracks.Track, value: Any, where: str)
     done: list[dict[str, Any]] = []
     for i, pe in enumerate(_changes(value, where)):
         pw = f"{where}[{i}]"
-        unknown = set(pe) - {"plugin", "params", "remove"}
+        unknown = set(pe) - {"plugin", "params", "remove", "replace_with"}
         if unknown:
             raise EditError(f"{pw}: unknown keys: {', '.join(sorted(unknown))}")
         plugin = _plugin(track, pe.get("plugin"), pw)
         assert plugin.record is not None
+        if sum(1 for k in ("params", "remove", "replace_with") if pe.get(k)) > 1:
+            raise EditError(f"{pw}: give one of 'params', 'remove', or 'replace_with'")
+        if "replace_with" in pe:
+            source_ref = pe["replace_with"]
+            if not isinstance(source_ref, dict) or set(source_ref) != {"track", "plugin"}:
+                raise EditError(f"{pw}: 'replace_with' must be like {{\"track\": 2, \"plugin\": \"Purpose\"}}")
+            try:
+                source_track = tracks.find_track(pd, source_ref["track"])
+            except tracks.TrackError as e:
+                raise EditError(f"{pw}.replace_with: {e}") from e
+            source = _plugin(source_track, source_ref["plugin"], f"{pw}.replace_with")
+            assert source.record is not None
+            copy = plugins.copied_into(source.record, plugin.record)
+            pd.records[pd.records.index(plugin.record)] = copy
+            track.plugins[track.plugins.index(plugin)] = dataclasses.replace(source, slot=plugin.slot, record=copy)
+            done.append({"plugin": plugin.name, "slot": plugin.slot, "replaced_with": source.name})
+            continue
         if pe.get("remove"):
-            if "params" in pe:
-                raise EditError(f"{pw}: give 'params' or 'remove', not both")
             # The plugin is its slot's record, which Logic loads without
             pd.records.remove(plugin.record)
             track.plugins.remove(plugin)

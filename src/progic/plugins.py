@@ -19,6 +19,7 @@ import difflib
 import plistlib
 import re
 import struct
+import uuid
 
 from .container import REC_HEADER_SIZE, Record, put_u32, u32
 
@@ -31,6 +32,17 @@ _PARAM = re.compile(rb'<PARAM id="([^"]*)" value="([^"]*)"/>')
 
 class PluginError(Exception):
     pass
+
+
+def copied_into(source: Record, target: Record) -> Record:
+    """A copy of the plugin in `source`'s slot, with its state, for the slot
+    `target` is in (any plugin slot's record, on any track). The copy gets its
+    own UUID, the 16 bytes before the slot record's last 4."""
+    raw = bytearray(source.raw)
+    # The strip and the slot
+    raw[0x0C:0x14] = target.raw[0x0C:0x14]
+    raw[-20:-4] = uuid.uuid4().bytes
+    return Record(source.tag, bytes(raw))
 
 
 def _state_range(raw: bytes) -> tuple[int, int] | None:

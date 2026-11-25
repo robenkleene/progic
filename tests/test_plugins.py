@@ -53,13 +53,30 @@ class PluginTest(unittest.TestCase):
         self.assertEqual([p.name for p in T.find_track(pd, 1).plugins], ["Depth"])
         self.assertEqual([p.name for p in T.find_track(pd, 2).plugins], ["E-Piano", "Purpose"])
 
+    def test_replaces_plugin_with_a_copy(self) -> None:
+        pd = load("L13_abstract")
+        edits.apply(pd, {"tracks": [{"track": 1, "plugins": [
+            {"plugin": "Mania", "replace_with": {"track": 2, "plugin": "Purpose"}},
+            {"plugin": "Purpose", "params": {"key": 3}},
+        ]}]})
+        pd = ProjectData.parse(pd.serialize())
+        copy = plugin(pd, 1, "Purpose")
+        original = plugin(pd, 2, "Purpose")
+        self.assertEqual(copy.slot, 4)
+        self.assertEqual([p.name for p in T.find_track(pd, 1).plugins], ["Depth", "Purpose"])
+        self.assertEqual(plugins.params(copy.record)["key"], 3.0)  # type: ignore[arg-type,index]
+        self.assertEqual(plugins.params(original.record)["key"], 0.0)  # type: ignore[arg-type,index]
+        # Its own UUID
+        self.assertNotEqual(copy.record.raw[-20:-4], original.record.raw[-20:-4])  # type: ignore[union-attr]
+
     def test_errors(self) -> None:
         cases = [
             ({"plugin": "Mania", "params": {"swng": 1}}, 1, "no parameter 'swng' (did you mean 'swing'"),
             ({"plugin": "Nope", "params": {}}, 1, "has no plugin 'Nope' (plugins: Depth (slot 2), Mania (slot 4))"),
             ({"plugin": "E-Piano", "params": {"a": 1}}, 2, "isn't a JUCE plugin"),
             ({"plugin": "Mania", "params": {"swing": "x"}}, 1, "'swing' must be a number"),
-            ({"plugin": "Mania", "params": {}, "remove": True}, 1, "give 'params' or 'remove', not both"),
+            ({"plugin": "Mania", "params": {"swing": 1}, "remove": True}, 1, "give one of 'params', 'remove', or 'replace_with'"),
+            ({"plugin": "Mania", "replace_with": {"track": 2}}, 1, "'replace_with' must be like"),
         ]
         for entry, track, message in cases:
             with self.subTest(message), self.assertRaises(edits.EditError) as ctx:
