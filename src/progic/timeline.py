@@ -334,6 +334,43 @@ def set_project_end(pd: ProjectData, tick: int) -> None:
     pd.song.raw = bytes(g)
 
 
+# --- tick/seconds conversion ------------------------------------------------
+
+
+def _tempo_segments(tempo: list[TempoPoint]) -> list[TempoPoint]:
+    points = sorted(tempo, key=lambda p: p.tick) or [TempoPoint(0, 120.0)]
+    if points[0].tick != 0:
+        points.insert(0, TempoPoint(0, points[0].bpm))
+    return points
+
+
+def seconds_at(tempo: list[TempoPoint], tick: int) -> float:
+    """Seconds from bar 1 to `tick` under the tempo map `tempo`."""
+    seconds = 0.0
+    points = _tempo_segments(tempo)
+    for i, p in enumerate(points):
+        end = points[i + 1].tick if i + 1 < len(points) else None
+        if end is not None and end < tick:
+            seconds += (end - p.tick) * 60 / (p.bpm * PPQ)
+            continue
+        return seconds + (tick - p.tick) * 60 / (p.bpm * PPQ)
+    return seconds
+
+
+def tick_at(tempo: list[TempoPoint], seconds: float) -> float:
+    """The tick `seconds` from bar 1 under the tempo map `tempo`."""
+    points = _tempo_segments(tempo)
+    elapsed = 0.0
+    for i, p in enumerate(points):
+        if i + 1 < len(points):
+            length = (points[i + 1].tick - p.tick) * 60 / (p.bpm * PPQ)
+            if elapsed + length < seconds:
+                elapsed += length
+                continue
+        return p.tick + (seconds - elapsed) * p.bpm * PPQ / 60
+    return 0.0
+
+
 # --- bar/tick conversion ----------------------------------------------------
 
 
