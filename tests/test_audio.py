@@ -133,6 +133,11 @@ class EditTest(AudioTestCase):
         _, media = self.apply({"tracks": [{"track": 5, "audio_regions": [{"bar": 2, "file": "047.wav"}]}]})
         self.assertEqual([f.name for f in media.files.values()], ["047_1.wav"])
 
+    def test_rejects_other_rates(self) -> None:
+        self.tone(rate=48000)
+        with self.assertRaisesRegex(E.EditError, "48000 Hz but the project is 44100"):
+            self.apply({"tracks": [{"track": 5, "audio_regions": [{"bar": 1, "file": "tone.wav"}]}]})
+
     def test_errors_name_the_region(self) -> None:
         with self.assertRaisesRegex(E.EditError, r"tracks\[0\]\.audio_regions\[0\]"):
             self.apply({"tracks": [{"track": 5, "audio_regions": [{"bar": 1, "file": "missing.wav"}]}]})

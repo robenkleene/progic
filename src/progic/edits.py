@@ -135,6 +135,8 @@ class Media:
     """File names already in the project's audio folder."""
     files: dict[Path, audio.AudioFile] = field(default_factory=lambda: {})
     prototype: audio.Prototype | None = None
+    rate: int | None = None
+    """The project's sample rate, which audio files must match."""
 
 
 def parse_pitch(value: Any) -> int:
@@ -292,6 +294,11 @@ def _audio_file(media: Media, value: Any, where: str) -> audio.AudioFile:
         f = audio.read_audio_file(path, name)
     except audio.AudioError as e:
         raise EditError(f"{where}: {e}") from e
+    if media.rate is not None and f.rate != media.rate:
+        raise EditError(
+            f"{where}: {path.name} is {f.rate} Hz but the project is {media.rate} Hz, so it would play at the "
+            f"wrong speed; convert it first, e.g. `afconvert -f WAVE -d LEI24@{media.rate} '{path.name}' out.wav`"
+        )
     media.taken.add(name)
     media.files[path] = f
     return f
@@ -398,6 +405,7 @@ def apply(pd: ProjectData, edits: Any, media: Media | None = None) -> dict[str, 
     # Taken before any regions are cleared, which could remove the only one.
     media.prototype = media.prototype or audio.extract_prototype(pd)
     media.taken |= set(audio.audio_file_names(pd))
+    media.rate = media.rate or audio.sample_rate(pd)
     if not isinstance(edits, dict):
         raise EditError("edit file must be a JSON object")
     doc: dict[str, Any] = edits  # type: ignore[assignment]

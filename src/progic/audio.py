@@ -75,6 +75,12 @@ _D_TYPE_FLAGS = -0x1C3
 _TYPE_COMPRESSED = 0x10
 _WAVE_FLOAT_CODEC = 3
 
+# The project's sample rate, by a byte at `gnoS` payload +0xdf and a value at
+# +0x11e (repeated at +0x120), for the rates seen in Logic's own projects.
+_GNOS_RATE_BYTE = 0x24 + 0xDF
+_GNOS_RATE_VALUE = 0x24 + 0x11E
+_GNOS_RATES = {(0x00, 0xE970): 44100, (0x16, 0xF8AC): 48000}
+
 # Seconds from Logic's epoch (1904) to the Unix epoch, for the overview chunk.
 _MAC_EPOCH = 2_082_844_800
 _OVERVIEW_BIN = 256
@@ -209,6 +215,12 @@ def read_audio_file(path: Path | str, name: str | None = None) -> AudioFile:
 
 
 # --- reading ----------------------------------------------------------------
+
+
+def sample_rate(pd: ProjectData) -> int | None:
+    """The project's sample rate, or `None` if it isn't one Progic knows."""
+    g = pd.song.raw
+    return _GNOS_RATES.get((g[_GNOS_RATE_BYTE], u16(g, _GNOS_RATE_VALUE)))
 
 
 def _region_records(pd: ProjectData) -> dict[int, dict[bytes, Record]]:
