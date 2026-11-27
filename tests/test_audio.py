@@ -55,6 +55,10 @@ class ReadTest(AudioTestCase):
             got, [(5, 0, 9546, "047", "047.wav"), (6, 0, 9546, "048", "048.wav"), (7, 0, 11150, "049", "049.wav")]
         )
 
+    def test_reads_regions_logic_13_wrote(self) -> None:
+        got = [(r.track, r.tick, r.name, r.file) for r in A.audio_regions(load("L13_audio_kits"))]
+        self.assertEqual(got, [(39, 0, "Ocean Shore 01", "Ocean Shore 01.wav"), (40, 15360, "Busy Road 01", "Busy Road 01.wav")])
+
     def test_describes_files_as_logic_does(self) -> None:
         # Describing the file each region plays reproduces Logic's descriptor
         pd = load("F23_av")
@@ -88,6 +92,12 @@ class WriteTest(AudioTestCase):
         A.add_audio_region(pd, T.find_track(pd, 6), f, tick=3840)
         got = [(r.track, r.tick, r.frames, r.name, r.file) for r in A.audio_regions(reparse(pd)) if r.track == 6]
         self.assertEqual(got, [(6, 0, 9546, "048", "048.wav"), (6, 3840, 132300, "tone", "tone.wav")])
+
+    def test_adds_region_logic_13(self) -> None:
+        pd = load("L13_audio_kits")
+        A.add_audio_region(pd, T.find_track(pd, 40), A.read_audio_file(self.tone()), tick=0)
+        got = [(r.track, r.tick, r.file) for r in A.audio_regions(reparse(pd)) if r.track == 40]
+        self.assertEqual(got, [(40, 0, "tone.wav"), (40, 15360, "Busy Road 01.wav")])
 
     def test_needs_audio_track(self) -> None:
         pd = load("F23_av")

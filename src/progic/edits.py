@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import addtrack, audio, plugins, regions, timeline, tracks
+from . import addtrack, audio, automation, plugins, regions, timeline, tracks
 from .container import ProjectData
 from .timeline import PPQ, MeterPoint, TimeMap
 
@@ -69,6 +69,15 @@ are allowed.
             {"start": 0.5, "length": 0.5, "pitch": 72, "velocity": 90}
           ]
         }
+      ],
+      "automation": [                        // REPLACES a parameter's automation,
+                                             //   ramping between points
+        {"param": "volume",                  // "volume" or "pan"
+         "points": [{"bar": 1, "db": -60},   // volume in dB (or "value", the
+                    {"bar": 9, "db": 0}]},   //   fader's 0-127, 90 = 0 dB)
+        {"param": "pan",
+         "points": [{"bar": 1, "value": 64}, // pan 0-127, 64 = center
+                    {"bar": 5, "beat": 3, "value": 20}]}
       ],
       "audio_regions": [                     // ADD audio regions (audio tracks)
         {
@@ -343,6 +352,38 @@ def _audio_regions(
     return count
 
 
+def _automation(pd: ProjectData, tm: TimeMap, track: tracks.Track, value: Any, where: str) -> list[str]:
+    new: dict[int, list[automation.Point]] = {}
+    for i, lane in enumerate(_changes(value, where)):
+        lw = f"{where}[{i}]"
+        unknown = set(lane) - {"param", "points"}
+        if unknown:
+            raise EditError(f"{lw}: unknown keys: {', '.join(sorted(unknown))}")
+        name = lane.get("param")
+        if name not in automation.PARAMS:
+            raise EditError(f"{lw}: 'param' must be one of {', '.join(automation.PARAMS)} (got {name!r})")
+        points: list[automation.Point] = []
+        for j, p in enumerate(_changes(lane.get("points", []), f"{lw}.points")):
+            pw = f"{lw}.points[{j}]"
+            unknown = set(p) - {"bar", "beat", "db", "value"}
+            if unknown:
+                raise EditError(f"{pw}: unknown keys: {', '.join(sorted(unknown))}")
+            if ("db" in p) == ("value" in p) or ("db" in p and name != "volume"):
+                raise EditError(f"{pw}: give 'value' (0-127)" + (" or 'db'" if name == "volume" else ""))
+            v = automation.db_to_value(_number(p, "db", pw)) if "db" in p else _number(p, "value", pw)
+            if not 0 <= v <= 127:
+                raise EditError(f"{pw}: value must be 0-127 (got {v:g})")
+            points.append(automation.Point(_tick(tm, p, pw), v))
+        if not points:
+            raise EditError(f"{lw}: needs at least one point")
+        new[automation.PARAMS[name]] = points
+    try:
+        automation.set_lanes(pd, track, new)
+    except automation.AutomationError as e:
+        raise EditError(f"{where}: {e}") from e
+    return [str(lane["param"]) for lane in value]
+
+
 def _plugin(track: tracks.Track, ref: Any, where: str) -> tracks.Plugin:
     if not isinstance(ref, (int, str)) or isinstance(ref, bool):
         raise EditError(f"{where}: 'plugin' must be a plugin's name or slot number")
@@ -439,7 +480,8 @@ def apply(pd: ProjectData, edits: Any, media: Media | None = None) -> dict[str, 
         for i, te in enumerate(track_edits):
             where = f"tracks[{i}]"
             unknown = set(te) - {
-                "track", "add", "name", "volume", "pan", "plugins", "clear_regions", "regions", "audio_regions"
+                "track", "add", "name", "volume", "pan", "plugins", "clear_regions", "regions", "audio_regions",
+                "automation",
             }
             if unknown:
                 raise EditError(f"{where}: unknown keys: {', '.join(sorted(unknown))}")
@@ -486,6 +528,8 @@ def apply(pd: ProjectData, edits: Any, media: Media | None = None) -> dict[str, 
                     result["mixer"] = {k: v for k, v in (("volume", volume), ("pan", pan)) if v is not None}
                 if "plugins" in te:
                     result["plugins"] = _apply_plugins(pd, track, te["plugins"], f"{where}.plugins")
+                if "automation" in te:
+                    result["automation"] = _automation(pd, tm, track, te["automation"], f"{where}.automation")
                 added = 0
                 for j, r in enumerate(_changes(te.get("regions", []), f"{where}.regions")):
                     _region(pd, tm, track, r, f"{where}.regions[{j}]")

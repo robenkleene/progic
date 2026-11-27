@@ -2,7 +2,7 @@
 
 Progic is a command-line tool for creating and editing Logic Pro projects (`.logicx`) without Logic. It's designed to be driven by LLM agents: every command takes or prints JSON, positions are musical (bars, beats, quarter notes), and errors say exactly which part of the input was wrong.
 
-You build a template in Logic with the tracks, instruments, and plugins you want. Progic then writes the musical content around it: tempo, time signatures, markers, track names, mixer settings, the parameters of plugins built with JUCE, MIDI regions with notes, and audio regions playing audio files. It can also add empty software instrument tracks.
+You build a template in Logic with the tracks, instruments, and plugins you want. Progic then writes the musical content around it: tempo, time signatures, markers, track names, mixer settings, the parameters of plugins built with JUCE, MIDI regions with notes, audio regions playing audio files, and volume and pan automation. It can also add empty software instrument tracks.
 
 ## Quick Start for Agents
 
@@ -66,7 +66,7 @@ Prints the full edit file reference. The edit file can set:
 - `tempo`: one BPM or a list of changes by bar and beat
 - `end`: the project end marker, where exporting stops
 - `markers`: the complete list of markers (replaces existing ones)
-- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), plugin `params` (for plugins built with JUCE), `remove` a plugin, or replace it with a copy of another track's (`replace_with`), `clear_regions`, new MIDI `regions`, and new `audio_regions` playing WAV files, which are copied into the project; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
+- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), plugin `params` (for plugins built with JUCE), `remove` a plugin, or replace it with a copy of another track's (`replace_with`), `clear_regions`, new MIDI `regions`, new `audio_regions` playing WAV files, which are copied into the project, and volume and pan `automation`, ramping between points; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
 
 ### `progic skill [--install [DIR]]`
 
@@ -77,7 +77,7 @@ Prints the agent skill for using progic, or installs it as a Claude Code skill (
 - Bars and beats are 1-based. A beat is one unit of the time signature denominator (a quarter note in 4/4, an eighth note in 6/8). Fractions are allowed.
 - Note `start` and `length` are in quarter notes from the start of their region, independent of the time signature.
 - Pitches are MIDI numbers or names with C4 = 60 (middle C). Logic displays MIDI note 60 as C3, so names in Logic's piano roll read one octave lower.
-- Volume is Logic's 0-127 fader value (90 is the 0 dB default). Pan is 0-127 with 64 at center.
+- Volume is Logic's 0-127 fader value (90 is the 0 dB default), or in dB for automation, on the fader's curve of 40 dB per decade of value. Pan is 0-127 with 64 at center.
 
 ## Templates
 
@@ -126,6 +126,7 @@ The format is undocumented and changes between Logic releases. Most test fixture
 - `src/progic/addtrack.py`: adding software instrument tracks
 - `src/progic/regions.py`: MIDI regions and notes
 - `src/progic/audio.py`: audio regions and the audio files they play
+- `src/progic/automation.py`: volume and pan automation
 - `src/progic/inspect.py`: the `inspect` summary
 - `src/progic/edits.py`: the edit file format and `apply`
 - `src/progic/cli.py`: the command-line interface
