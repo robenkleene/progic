@@ -1,11 +1,11 @@
 ---
 name: progic
-description: Create and edit Logic Pro projects (.logicx) with the `progic` CLI, e.g., setting up a song from a template with tempo, markers, tracks, mixer settings, and MIDI parts. Use when asked to make, arrange, or modify a Logic Pro project or write MIDI into one.
+description: Create and edit Logic Pro projects (.logicx) with the `progic` CLI, e.g., setting up a song from a template with tempo, markers, tracks, mixer settings, MIDI parts, and audio files. Use when asked to make, arrange, or modify a Logic Pro project, or write MIDI or place audio files in one.
 ---
 
 # Progic
 
-`progic` edits Logic Pro projects without Logic. It works from a template made in Logic: the template's tracks supply instruments and plugins, and progic writes tempo, time signatures, markers, track names, volume and pan, the parameters of plugins built with JUCE, and MIDI regions. It can also add empty software instrument tracks.
+`progic` edits Logic Pro projects without Logic. It works from a template made in Logic: the template's tracks supply instruments and plugins, and progic writes tempo, time signatures, markers, track names, volume and pan, the parameters of plugins built with JUCE, MIDI regions, and audio regions playing audio files. It can also add empty software instrument tracks.
 
 ## Workflow
 
@@ -24,12 +24,13 @@ Never overwrite the user's template; always write to a new path with `-o` unless
 - Choose tracks by their instrument and plugins from `inspect` (e.g. put a bass line on the track with a bass patch), and rename them to match their role.
 - If the template lacks a track you need and `can_add_tracks` is true, add one with `{"add": "instrument", "name": ...}`. Added tracks have no instrument loaded, so tell the user which added tracks need a sound and what kind. Prefer an existing track with a suitable sound over adding one.
 - MIDI regions only go on `instrument` tracks.
+- Audio regions (`audio_regions`) only go on `audio` tracks, and need a project that already has an audio region to copy (`can_add_audio_regions` in `inspect`). The file must be a PCM WAV at the project's sample rate; convert anything else (e.g., AAC or ALAC `.caf`) first with `afconvert -f WAVE -d LEI24@<rate> in.caf out.wav` on a Mac. `until` repeats a file back to back up to a bar, e.g., for an ambience under a whole section. Files are copied into the project.
 - Plugins built with JUCE (`"juce": true` in `inspect`) have their parameters set with a track's `plugins`, by id with real values (not 0-1). `progic inspect --params` lists the ids and current values. Unknown ids are an error, with the closest ids suggested. `{"plugin": ..., "remove": true}` removes a plugin, e.g., a MIDI effect in front of an instrument, so the track's regions play the instrument directly. `{"plugin": ..., "replace_with": {"track": ..., "plugin": ...}}` replaces a plugin with a copy of another track's, settings and all, e.g., to put a MIDI effect in front of another track's instrument. Replace a plugin with one of the same kind.
 - `progic plugin-state PROJECT TRACK PLUGIN` prints a JUCE plugin's whole state XML, e.g., to render it offline with the same settings.
 - `markers` replaces all markers and needs `has_marker_track: true`.
 - `tempo` and `meter` replace the whole map.
 - `end` moves the project end marker, where exporting stops (bar 129 in a new project). Set it to the end of the song so exports aren't padded with the rest.
-- `clear_regions: true` on a track removes its MIDI regions before adding new ones; use it when regenerating a part.
+- `clear_regions: true` on a track removes its MIDI or audio regions before adding new ones; use it when regenerating a part.
 - Errors name the failing field (e.g. `tracks[1].regions[0]: ...`); fix that field and re-run. A failed `apply` writes nothing.
 
 ## Writing Parts

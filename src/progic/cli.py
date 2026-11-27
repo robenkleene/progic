@@ -9,7 +9,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from . import __version__, edits, inspect, plugins, timeline, tracks
+from . import __version__, audio, edits, inspect, plugins, timeline, tracks
 from .bundle import Bundle, BundleError
 from .container import ProjectData
 
@@ -81,6 +81,9 @@ def _read_edits(path: str) -> Any:
 def _sync_metadata(bundle: Bundle, pd: ProjectData) -> None:
     meter = timeline.meter_map(pd)
     values: dict[str, Any] = {"BeatsPerMinute": timeline.initial_bpm(pd)}
+    files = audio.audio_file_names(pd)
+    if files or "AudioFiles" in bundle.metadata():
+        values["AudioFiles"] = [f"{audio.AUDIO_DIR}/{name}" for name in files]
     if meter:
         values["SongSignatureNumerator"] = meter[0].numerator
         values["SongSignatureDenominator"] = meter[0].denominator
@@ -123,7 +126,12 @@ def cmd_apply(args: argparse.Namespace) -> int:
         raise CliError("pass -o OUTPUT, --in-place, or --dry-run")
     edit_doc = _read_edits(args.edits)
     src, pd = _load(args.project)
-    summary = edits.apply(pd, edit_doc)
+    media_dir = src.path / "Media" / audio.AUDIO_DIR
+    media = edits.Media(
+        base=Path.cwd() if args.edits == "-" else Path(args.edits).resolve().parent,
+        taken={p.name for p in media_dir.iterdir()} if media_dir.is_dir() else set(),
+    )
+    summary = edits.apply(pd, edit_doc, media)
     # Parse what we're about to write as a last structural check.
     data = pd.serialize()
     ProjectData.parse(data)
@@ -132,6 +140,10 @@ def cmd_apply(args: argparse.Namespace) -> int:
         return 0
     dest = Bundle.copy(src.path, args.output, overwrite=args.force) if args.output else src
     dest.project_data_path.write_bytes(data)
+    if media.files:
+        (dest.path / "Media" / audio.AUDIO_DIR).mkdir(parents=True, exist_ok=True)
+        for f in media.files.values():
+            (dest.path / "Media" / audio.AUDIO_DIR / f.name).write_bytes(f.data)
     _sync_metadata(dest, pd)
     print(json.dumps({"project": str(dest.path), "changes": summary}, indent=2))
     return 0

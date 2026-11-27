@@ -2,7 +2,7 @@
 
 Progic is a command-line tool for creating and editing Logic Pro projects (`.logicx`) without Logic. It's designed to be driven by LLM agents: every command takes or prints JSON, positions are musical (bars, beats, quarter notes), and errors say exactly which part of the input was wrong.
 
-You build a template in Logic with the tracks, instruments, and plugins you want. Progic then writes the musical content around it: tempo, time signatures, markers, track names, mixer settings, the parameters of plugins built with JUCE, and MIDI regions with notes. It can also add empty software instrument tracks.
+You build a template in Logic with the tracks, instruments, and plugins you want. Progic then writes the musical content around it: tempo, time signatures, markers, track names, mixer settings, the parameters of plugins built with JUCE, MIDI regions with notes, and audio regions playing audio files. It can also add empty software instrument tracks.
 
 ## Quick Start for Agents
 
@@ -44,7 +44,7 @@ A minimal edit file:
 
 ### `progic inspect PROJECT [--notes] [--params] [--text]`
 
-Prints the tempo map, meter map, project end, markers, and every track with its number, name, kind (`instrument`, `audio`, `aux`, ...), volume, pan, plugins, and MIDI regions. It also reports `can_add_tracks`, with `free_instrument_strips` (how many tracks can be added) or `cannot_add_tracks_reason`. JSON by default; `--text` for a compact summary; `--notes` to include every note; `--params` to include the parameters of plugins built with JUCE (marked `"juce": true`).
+Prints the tempo map, meter map, project end, markers, and every track with its number, name, kind (`instrument`, `audio`, `aux`, ...), volume, pan, plugins, and MIDI and audio regions. It also reports `can_add_audio_regions`, `can_add_tracks`, with `free_instrument_strips` (how many tracks can be added) or `cannot_add_tracks_reason`. JSON by default; `--text` for a compact summary; `--notes` to include every note; `--params` to include the parameters of plugins built with JUCE (marked `"juce": true`).
 
 ### `progic apply PROJECT EDITS (-o OUTPUT | --in-place | --dry-run) [--force]`
 
@@ -66,7 +66,7 @@ Prints the full edit file reference. The edit file can set:
 - `tempo`: one BPM or a list of changes by bar and beat
 - `end`: the project end marker, where exporting stops
 - `markers`: the complete list of markers (replaces existing ones)
-- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), plugin `params` (for plugins built with JUCE), `remove` a plugin, or replace it with a copy of another track's (`replace_with`), `clear_regions`, and new MIDI `regions`; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
+- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), plugin `params` (for plugins built with JUCE), `remove` a plugin, or replace it with a copy of another track's (`replace_with`), `clear_regions`, new MIDI `regions`, and new `audio_regions` playing WAV files, which are copied into the project; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
 
 ### `progic skill [--install [DIR]]`
 
@@ -94,6 +94,8 @@ Progic can add software instrument tracks, but they come with an empty channel s
 To be able to write markers, the template needs a marker track: in Logic, add a marker, delete it, and save. `progic inspect` reports this as `has_marker_track`.
 
 New MIDI regions are cloned from a region already in the project when it has one, and otherwise from a bundled prototype region.
+
+New audio regions are cloned from an audio region already in the project, so a template that will get audio needs one: in Logic, put any audio file on an audio track and save. They play PCM WAV files at the project's sample rate. Anything else, such as AAC or ALAC in a `.caf`, is converted first, e.g., with `afconvert -f WAVE -d LEI24@48000 in.caf out.wav` on a Mac. Progic adds the waveform overview chunk Logic would otherwise add to a WAV when it imports it, since Logic checks a file's size against the size the project stores.
 
 ## Installation
 
@@ -123,6 +125,7 @@ The format is undocumented and changes between Logic releases. Most test fixture
 - `src/progic/plugins.py`: the state of plugins built with JUCE, their parameters, and copying a plugin
 - `src/progic/addtrack.py`: adding software instrument tracks
 - `src/progic/regions.py`: MIDI regions and notes
+- `src/progic/audio.py`: audio regions and the audio files they play
 - `src/progic/inspect.py`: the `inspect` summary
 - `src/progic/edits.py`: the edit file format and `apply`
 - `src/progic/cli.py`: the command-line interface

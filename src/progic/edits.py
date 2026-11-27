@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
-from . import addtrack, plugins, regions, timeline, tracks
+from . import addtrack, audio, plugins, regions, timeline, tracks
 from .container import ProjectData
 from .timeline import PPQ, MeterPoint, TimeMap
 
@@ -52,7 +54,7 @@ are allowed.
          "replace_with": {"track": 2,        //   another track's, with its
                           "plugin": "Purpose"}} //   settings
       ],
-      "clear_regions": true,                 // delete existing MIDI regions first
+      "clear_regions": true,                 // delete existing regions first
       "regions": [                           // ADD MIDI regions (instrument tracks)
         {
           "bar": 33, "beat": 1,              // region start
@@ -66,6 +68,17 @@ are allowed.
             {"start": 0, "length": 0.5, "pitch": "A4", "velocity": 100},
             {"start": 0.5, "length": 0.5, "pitch": 72, "velocity": 90}
           ]
+        }
+      ],
+      "audio_regions": [                     // ADD audio regions (audio tracks)
+        {
+          "bar": 1, "beat": 1,               // region start
+          "file": "Ocean.wav",               // a PCM WAV, relative to the edit
+                                             //   file; copied into the project
+          "until": {"bar": 65},              // optional: repeat the file back
+                                             //   to back until here, trimming
+                                             //   the last copy; default: once
+          "name": "Ocean"                    // optional, default: file name
         }
       ]
     },
@@ -95,6 +108,10 @@ Requirements:
   - "markers" needs a project with a marker track (in Logic: add a marker,
     delete it, save). `progic inspect` reports "has_marker_track".
   - "regions" need instrument tracks.
+  - "audio_regions" need audio tracks, and a project with an audio region
+    to copy (in Logic: put any audio file on an audio track and save). The
+    file must be a PCM WAV at the project's sample rate; convert anything
+    else first, e.g. `afconvert -f WAVE -d LEI24@48000 in.caf out.wav`.
   - "add" needs a template with at least 3 instrument tracks whose most
     recently created track is an instrument track. `progic inspect` reports
     "can_add_tracks" (with "cannot_add_tracks_reason" if not).
@@ -106,6 +123,18 @@ _NOTE_RE = re.compile(r"^([A-Ga-g])([#b]?)(-?\d+)$")
 
 class EditError(Exception):
     pass
+
+
+@dataclass
+class Media:
+    """The audio files an edit adds, for the caller to copy into the project."""
+
+    base: Path = Path(".")
+    """What audio file paths are relative to."""
+    taken: set[str] = field(default_factory=lambda: set())
+    """File names already in the project's audio folder."""
+    files: dict[Path, audio.AudioFile] = field(default_factory=lambda: {})
+    prototype: audio.Prototype | None = None
 
 
 def parse_pitch(value: Any) -> int:
@@ -247,6 +276,66 @@ def _region(pd: ProjectData, tm: TimeMap, track: tracks.Track, obj: dict[str, An
         raise EditError(f"{where}: {e}") from e
 
 
+def _audio_file(media: Media, value: Any, where: str) -> audio.AudioFile:
+    if not isinstance(value, str):
+        raise EditError(f"{where}: 'file' must be a path to a WAV file")
+    path = (media.base / value).resolve()
+    if path in media.files:
+        return media.files[path]
+    name = path.name
+    stem, suffix = path.stem, path.suffix
+    n = 1
+    while name in media.taken:
+        name = f"{stem}_{n}{suffix}"
+        n += 1
+    try:
+        f = audio.read_audio_file(path, name)
+    except audio.AudioError as e:
+        raise EditError(f"{where}: {e}") from e
+    media.taken.add(name)
+    media.files[path] = f
+    return f
+
+
+def _audio_regions(
+    pd: ProjectData, tm: TimeMap, media: Media, track: tracks.Track, obj: dict[str, Any], where: str
+) -> int:
+    unknown = set(obj) - {"bar", "beat", "file", "until", "name"}
+    if unknown:
+        raise EditError(f"{where}: unknown keys: {', '.join(sorted(unknown))}")
+    start = _tick(tm, obj, where)
+    f = _audio_file(media, obj.get("file"), where)
+    name = obj.get("name")
+    if name is not None and not isinstance(name, str):
+        raise EditError(f"{where}: 'name' must be a string")
+    tempo = timeline.tempo_map(pd)
+    seconds = f.frames / f.rate
+    if "until" in obj:
+        if not isinstance(obj["until"], dict):
+            raise EditError(f"{where}: 'until' must be an object like {{\"bar\": 65}}")
+        end = timeline.seconds_at(tempo, _tick(tm, obj["until"], f"{where}.until"))
+        if end <= timeline.seconds_at(tempo, start):
+            raise EditError(f"{where}: 'until' must be after the region's start")
+    else:
+        end = timeline.seconds_at(tempo, start) + seconds
+    # Copies back to back, each starting where the last one's audio ends, the
+    # last trimmed to end at `end`.
+    count = 0
+    at = timeline.seconds_at(tempo, start)
+    while end - at > 1 / f.rate:
+        frames = min(f.frames, round((end - at) * f.rate))
+        try:
+            audio.add_audio_region(
+                pd, track, f, tick=round(timeline.tick_at(tempo, at)), frames=frames, name=name,
+                prototype=media.prototype,
+            )
+        except regions.RegionError as e:
+            raise EditError(f"{where}: {e}") from e
+        at += seconds
+        count += 1
+    return count
+
+
 def _plugin(track: tracks.Track, ref: Any, where: str) -> tracks.Plugin:
     if not isinstance(ref, (int, str)) or isinstance(ref, bool):
         raise EditError(f"{where}: 'plugin' must be a plugin's name or slot number")
@@ -301,8 +390,14 @@ def _apply_plugins(pd: ProjectData, track: tracks.Track, value: Any, where: str)
     return done
 
 
-def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
-    """Apply `edits` (parsed JSON) to `pd`. Returns a summary of what changed."""
+def apply(pd: ProjectData, edits: Any, media: Media | None = None) -> dict[str, Any]:
+    """Apply `edits` (parsed JSON) to `pd`. Returns a summary of what changed.
+    The audio files it adds are collected in `media`, for the caller to copy
+    into the project."""
+    media = media or Media()
+    # Taken before any regions are cleared, which could remove the only one.
+    media.prototype = media.prototype or audio.extract_prototype(pd)
+    media.taken |= set(audio.audio_file_names(pd))
     if not isinstance(edits, dict):
         raise EditError("edit file must be a JSON object")
     doc: dict[str, Any] = edits  # type: ignore[assignment]
@@ -335,7 +430,9 @@ def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
         targets: list[tracks.Track | None] = []
         for i, te in enumerate(track_edits):
             where = f"tracks[{i}]"
-            unknown = set(te) - {"track", "add", "name", "volume", "pan", "plugins", "clear_regions", "regions"}
+            unknown = set(te) - {
+                "track", "add", "name", "volume", "pan", "plugins", "clear_regions", "regions", "audio_regions"
+            }
             if unknown:
                 raise EditError(f"{where}: unknown keys: {', '.join(sorted(unknown))}")
             if ("track" in te) == ("add" in te):
@@ -371,7 +468,9 @@ def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
                     tracks.rename(track, te["name"])
                     result["renamed"] = te["name"]
                 if te.get("clear_regions"):
-                    result["regions_removed"] = regions.remove_midi_regions(pd, track)
+                    result["regions_removed"] = regions.remove_midi_regions(pd, track) + audio.remove_audio_regions(
+                        pd, track
+                    )
                 if "volume" in te or "pan" in te:
                     volume = int(_number(te, "volume", where)) if "volume" in te else None
                     pan = int(_number(te, "pan", where)) if "pan" in te else None
@@ -385,6 +484,11 @@ def apply(pd: ProjectData, edits: Any) -> dict[str, Any]:
                     added += 1
                 if added:
                     result["regions_added"] = added
+                added = 0
+                for j, r in enumerate(_changes(te.get("audio_regions", []), f"{where}.audio_regions")):
+                    added += _audio_regions(pd, tm, media, track, r, f"{where}.audio_regions[{j}]")
+                if added:
+                    result["audio_regions_added"] = added
             except (tracks.TrackError, regions.RegionError, plugins.PluginError) as e:
                 raise EditError(f"{where}: {e}") from e
             done.append(result)

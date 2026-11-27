@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import addtrack, plugins, regions, timeline, tracks
+from . import addtrack, audio, plugins, regions, timeline, tracks
 from .container import ProjectData
 from .timeline import PPQ, TimeMap
 
@@ -62,9 +62,13 @@ def note_json(n: regions.Note) -> dict[str, Any]:
 def inspect(pd: ProjectData, *, notes: bool = False, params: bool = False) -> dict[str, Any]:
     meter = timeline.meter_map(pd)
     tm = TimeMap(meter)
+    tempo = timeline.tempo_map(pd)
     by_track: dict[int, list[regions.MidiRegion]] = {}
     for r in regions.midi_regions(pd):
         by_track.setdefault(r.track, []).append(r)
+    audio_by_track: dict[int, list[audio.AudioRegion]] = {}
+    for a in audio.audio_regions(pd):
+        audio_by_track.setdefault(a.track, []).append(a)
 
     track_list: list[dict[str, Any]] = []
     for t in tracks.tracks(pd):
@@ -86,6 +90,21 @@ def inspect(pd: ProjectData, *, notes: bool = False, params: bool = False) -> di
                 region["note_count"] = len(r.notes)
             region_list.append(region)
         entry["regions"] = region_list
+        if t.kind == "audio":
+            audio_list: list[dict[str, Any]] = []
+            for a in audio_by_track.get(t.number, []):
+                seconds = a.frames / a.rate if a.rate else 0.0
+                end = round(timeline.tick_at(tempo, timeline.seconds_at(tempo, a.tick) + seconds))
+                audio_list.append(
+                    {
+                        "name": a.name,
+                        "file": a.file,
+                        **position(tm, a.tick),
+                        "length_bars": _length_bars(tm, a.tick, end - a.tick),
+                        "seconds": _round(seconds),
+                    }
+                )
+            entry["audio_regions"] = audio_list
         track_list.append(entry)
 
     cannot_add = addtrack.can_add_instrument(pd)
@@ -96,6 +115,7 @@ def inspect(pd: ProjectData, *, notes: bool = False, params: bool = False) -> di
         "has_marker_track": timeline.has_marker_track(pd),
         "markers": [{**position(tm, m.tick), "name": m.name} for m in timeline.markers(pd)],
         "can_add_tracks": cannot_add is None,
+        "can_add_audio_regions": audio.extract_prototype(pd) is not None,
         "tracks": track_list,
     }
     if cannot_add is None:
@@ -122,6 +142,8 @@ def text(summary: dict[str, Any]) -> str:
         lines.append(f"Adding tracks: yes, up to {summary['free_instrument_strips']} instrument tracks")
     else:
         lines.append(f"Adding tracks: no ({summary['cannot_add_tracks_reason']})")
+    if not summary["can_add_audio_regions"]:
+        lines.append("Audio regions: can't be added (no audio region to copy)")
     lines.append("Tracks:")
     for t in summary["tracks"]:
         mix = f" vol {t['volume']} pan {t['pan']}" if "volume" in t else ""
@@ -132,5 +154,10 @@ def text(summary: dict[str, Any]) -> str:
             count = len(r["notes"]) if "notes" in r else r["note_count"]
             lines.append(
                 f"       region {r['name']!r} @ bar {r['bar']} beat {r['beat']}, {r['length_bars']} bars, {count} notes"
+            )
+        for a in t.get("audio_regions", []):
+            lines.append(
+                f"       audio region {a['name']!r} ({a['file']}) @ bar {a['bar']} beat {a['beat']}, "
+                f"{a['length_bars']} bars, {a['seconds']} s"
             )
     return "\n".join(lines)
