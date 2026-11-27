@@ -9,7 +9,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from . import __version__, audio, edits, inspect, plugins, timeline, tracks
+from . import __version__, audio, edits, inspect, plugins, timeline, tracks, undo
 from .bundle import Bundle, BundleError
 from .container import ProjectData
 
@@ -56,6 +56,11 @@ location is ~/.claude/skills/progic/SKILL.md."""
 
 NEW_HELP = """\
 Copy a template project to a new path (without Logic's backup folders)."""
+
+STRIP_UNDO_HELP = """\
+Remove the undo history Logic saves in a project, e.g., from a template,
+whose history is only how it was made. Loading patches can leave megabytes
+of it. Write to a new project with -o, or edit the input with --in-place."""
 
 
 class CliError(Exception):
@@ -149,6 +154,19 @@ def cmd_apply(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_strip_undo(args: argparse.Namespace) -> int:
+    if bool(args.output) == bool(args.in_place):
+        raise CliError("pass one of -o OUTPUT or --in-place")
+    src, pd = _load(args.project)
+    steps = undo.strip_undo(pd)
+    data = pd.serialize()
+    ProjectData.parse(data)
+    dest = Bundle.copy(src.path, args.output, overwrite=args.force) if args.output else src
+    dest.project_data_path.write_bytes(data)
+    print(json.dumps({"project": str(dest.path), "undo_steps_removed": steps}))
+    return 0
+
+
 def cmd_edit_format(_: argparse.Namespace) -> int:
     print(edits.EDIT_FORMAT, end="")
     return 0
@@ -195,6 +213,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("output", help="path of the new .logicx project")
     p.add_argument("--force", action="store_true", help="overwrite OUTPUT if it exists")
     p.set_defaults(func=cmd_new)
+
+    p = sub.add_parser(
+        "strip-undo", help="remove a project's undo history", description=STRIP_UNDO_HELP, formatter_class=raw
+    )
+    p.add_argument("project", help="path to a .logicx project")
+    p.add_argument("-o", "--output", help="write the result to this new .logicx path")
+    p.add_argument("--in-place", action="store_true", help="modify the input project")
+    p.add_argument("--force", action="store_true", help="overwrite OUTPUT if it exists")
+    p.set_defaults(func=cmd_strip_undo)
 
     p = sub.add_parser(
         "plugin-state", help="print a JUCE plugin's state XML", description=PLUGIN_STATE_HELP, formatter_class=raw

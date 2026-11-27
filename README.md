@@ -58,6 +58,10 @@ Prints the state of a plugin built with JUCE (`"juce": true` in `inspect`), the 
 
 Copies a template to a new project, leaving out Logic's backup folders.
 
+### `progic strip-undo PROJECT (-o OUTPUT | --in-place) [--force]`
+
+Removes the undo history Logic saves in a project. Strip it from templates: their history is only how they were made, and loading patches can leave megabytes of it.
+
 ### `progic edit-format`
 
 Prints the full edit file reference. The edit file can set:
@@ -81,7 +85,7 @@ Prints the agent skill for using progic, or installs it as a Claude Code skill (
 
 ## Templates
 
-Progic doesn't load instruments or plugins, so a template should contain a track for every sound a song needs, with its instrument and plugins loaded. Unused tracks can be left empty.
+Progic doesn't load instruments or plugins, so a template should contain a track for every sound a song needs, with its instrument and plugins loaded. Unused tracks can be left empty. Templates are kept without their undo history (`progic strip-undo`).
 
 Progic can add software instrument tracks, but they come with an empty channel strip: no instrument or plugins. Logic can't load a mixer channel created from scratch, so an added track uses one of the spare instrument channel strips Logic pre-allocates in a new project. Adding tracks needs a template that:
 
@@ -128,6 +132,7 @@ The format is undocumented and changes between Logic releases. Most test fixture
 - `src/progic/audio.py`: audio regions and the audio files they play
 - `src/progic/automation.py`: volume and pan automation
 - `src/progic/inspect.py`: the `inspect` summary
+- `src/progic/undo.py`: Logic's undo history
 - `src/progic/edits.py`: the edit file format and `apply`
 - `src/progic/cli.py`: the command-line interface
 - `src/progic/data/`: the bundled MIDI region prototype and agent skill
