@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from progic import edits, timeline
+from progic import edits, regions, timeline
 from progic.bundle import Bundle
 from progic.cli import main
 from progic.container import ProjectData
@@ -113,6 +113,15 @@ class ApplyTest(unittest.TestCase):
         edits.apply(pd, {"meter": "3/4", "end": {"bar": 9}})
         self.assertEqual(inspect(ProjectData.parse(pd.serialize()))["end"], {"bar": 9, "beat": 1})
         self.assertEqual(timeline.project_end(pd), 8 * 3 * 960)
+
+    def test_project_end_moves_arrange_length(self) -> None:
+        # Logic keeps the arrange sequence as long as the project, and doesn't
+        # play audio regions starting after it
+        pd = load("L13_audio_kits")
+        self.assertEqual(regions.arrange_length(pd), timeline.project_end(pd))
+        edits.apply(pd, {"end": {"bar": 193}})
+        pd = ProjectData.parse(pd.serialize())
+        self.assertEqual(regions.arrange_length(pd), 192 * 4 * 960)
 
     def test_clear_regions(self) -> None:
         pd = load("F22_multimidi")

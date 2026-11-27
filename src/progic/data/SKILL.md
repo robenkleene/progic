@@ -29,7 +29,7 @@ Never overwrite the user's template; always write to a new path with `-o` unless
 - `progic plugin-state PROJECT TRACK PLUGIN` prints a JUCE plugin's whole state XML, e.g., to render it offline with the same settings.
 - `markers` replaces all markers and needs `has_marker_track: true`.
 - `tempo` and `meter` replace the whole map.
-- `end` moves the project end marker, where exporting stops (bar 129 in a new project). Set it to the end of the song so exports aren't padded with the rest.
+- `end` moves the project end marker, where exporting stops (bar 129 in a new project). Set it to the end of the song so exports aren't padded with the rest. Logic doesn't play audio regions that start after it.
 - `automation` on a track replaces a parameter's (`volume` or `pan`) automation with points Logic ramps between, e.g., to fade a part in over a build or out at the end. Volume points take `db` (or `value`, the 0-127 fader), pan points `value` (0-127, 64 center). To hear it in an export, Logic's "Include Volume/Pan Automation" has to be checked.
 - After saving a template in Logic, strip its undo history with `progic strip-undo TEMPLATE --in-place`; templates are kept without it.
 - `clear_regions: true` on a track removes its MIDI or audio regions before adding new ones; use it when regenerating a part.

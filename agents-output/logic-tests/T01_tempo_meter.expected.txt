@@ -1,0 +1,7 @@
+Source fixture: F0_baseline
+
+Tempo: 138 BPM @ bar 1, 140 BPM @ bar 5, 128.5 BPM @ bar 9
+Meter: 4/4 @ bar 1, 3/4 @ bar 5, 7/8 @ bar 9
+Markers: no marker track (markers can't be added)
+Tracks:
+  1. Inst 1 [instrument] vol 90 pan 64

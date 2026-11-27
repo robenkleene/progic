@@ -201,6 +201,26 @@ def arrange_container(pd: ProjectData) -> Record | None:
     return max(pool, key=lambda r: len(r.raw)) if pool else None
 
 
+# The arrange sequence's length in ticks, after its name. Logic keeps it at
+# the project end marker, and doesn't play audio regions that start after it
+# (MIDI regions play regardless).
+_ARRANGE_LENGTH_AFTER_NAME = 0x3C
+
+
+def arrange_length(pd: ProjectData) -> int | None:
+    container = arrange_container(pd)
+    return None if container is None else u32(container.raw, _name_end(container.raw) + _ARRANGE_LENGTH_AFTER_NAME)
+
+
+def set_arrange_length(pd: ProjectData, tick: int) -> None:
+    container = arrange_container(pd)
+    if container is None:
+        return
+    raw = bytearray(container.raw)
+    put_u32(raw, _name_end(container.raw) + _ARRANGE_LENGTH_AFTER_NAME, tick)
+    container.raw = bytes(raw)
+
+
 def _arrange_events(pd: ProjectData) -> Record | None:
     container = arrange_container(pd)
     if container is None:

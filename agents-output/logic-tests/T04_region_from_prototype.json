@@ -1,0 +1,110 @@
+{
+  "tracks": [
+    {
+      "track": 1,
+      "regions": [
+        {
+          "bar": 2,
+          "notes": [
+            {
+              "start": 0.0,
+              "length": 0.5,
+              "pitch": 57,
+              "velocity": 100
+            },
+            {
+              "start": 0.5,
+              "length": 0.5,
+              "pitch": 60,
+              "velocity": 80
+            },
+            {
+              "start": 1.0,
+              "length": 0.5,
+              "pitch": 64,
+              "velocity": 90
+            },
+            {
+              "start": 1.5,
+              "length": 0.5,
+              "pitch": 69,
+              "velocity": 75
+            },
+            {
+              "start": 2.0,
+              "length": 0.5,
+              "pitch": 64,
+              "velocity": 100
+            },
+            {
+              "start": 2.5,
+              "length": 0.5,
+              "pitch": 60,
+              "velocity": 80
+            },
+            {
+              "start": 3.0,
+              "length": 0.5,
+              "pitch": 57,
+              "velocity": 90
+            },
+            {
+              "start": 3.5,
+              "length": 0.5,
+              "pitch": 60,
+              "velocity": 75
+            },
+            {
+              "start": 4.0,
+              "length": 0.5,
+              "pitch": 57,
+              "velocity": 100
+            },
+            {
+              "start": 4.5,
+              "length": 0.5,
+              "pitch": 60,
+              "velocity": 80
+            },
+            {
+              "start": 5.0,
+              "length": 0.5,
+              "pitch": 64,
+              "velocity": 90
+            },
+            {
+              "start": 5.5,
+              "length": 0.5,
+              "pitch": 69,
+              "velocity": 75
+            },
+            {
+              "start": 6.0,
+              "length": 0.5,
+              "pitch": 64,
+              "velocity": 100
+            },
+            {
+              "start": 6.5,
+              "length": 0.5,
+              "pitch": 60,
+              "velocity": 80
+            },
+            {
+              "start": 7.0,
+              "length": 0.5,
+              "pitch": 57,
+              "velocity": 90
+            },
+            {
+              "start": 7.5,
+              "length": 0.5,
+              "pitch": 60,
+              "velocity": 75
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

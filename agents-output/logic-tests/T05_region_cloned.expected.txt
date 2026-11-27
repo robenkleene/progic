@@ -1,0 +1,10 @@
+Source fixture: F4b_midinotes
+
+Tempo: 120 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: no marker track (markers can't be added)
+Tracks:
+  1. Inst 1 [instrument] vol 90 pan 64
+       region 'Inst 1' @ bar 1 beat 1, 1 bars, 3 notes
+       region 'Arp' @ bar 3 beat 1, 1 bars, 8 notes
+       region 'Offbeat' @ bar 5 beat 3, 2 bars, 3 notes

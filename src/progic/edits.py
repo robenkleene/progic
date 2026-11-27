@@ -486,7 +486,9 @@ def apply(pd: ProjectData, edits: Any, media: Media | None = None) -> dict[str, 
         if not isinstance(doc["end"], dict):
             raise EditError("end must be an object like {\"bar\": 9}")
         try:
-            timeline.set_project_end(pd, _tick(tm, doc["end"], "end"))
+            end = _tick(tm, doc["end"], "end")
+            timeline.set_project_end(pd, end)
+            regions.set_arrange_length(pd, end)
         except timeline.TimelineError as e:
             raise EditError(f"end: {e}") from e
         summary["end"] = doc["end"]

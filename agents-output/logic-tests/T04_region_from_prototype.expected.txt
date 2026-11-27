@@ -1,0 +1,8 @@
+Source fixture: F0_baseline
+
+Tempo: 120 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: no marker track (markers can't be added)
+Tracks:
+  1. Inst 1 [instrument] vol 90 pan 64
+       region 'Inst 1' @ bar 2 beat 1, 2 bars, 16 notes

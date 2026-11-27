@@ -1,0 +1,36 @@
+{
+  "tempo": [
+    {
+      "bar": 1,
+      "bpm": 138
+    },
+    {
+      "bar": 5,
+      "bpm": 140
+    }
+  ],
+  "meter": [
+    {
+      "bar": 1,
+      "signature": "4/4"
+    },
+    {
+      "bar": 9,
+      "signature": "3/4"
+    }
+  ],
+  "markers": [
+    {
+      "bar": 1,
+      "name": "Intro"
+    },
+    {
+      "bar": 5,
+      "name": "Build"
+    },
+    {
+      "bar": 9,
+      "name": "Drop"
+    }
+  ]
+}

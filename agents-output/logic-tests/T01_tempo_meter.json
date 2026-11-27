@@ -1,0 +1,31 @@
+{
+  "tempo": [
+    {
+      "bar": 1,
+      "bpm": 138
+    },
+    {
+      "bar": 5,
+      "bpm": 140
+    },
+    {
+      "bar": 9,
+      "beat": 3,
+      "bpm": 128.5
+    }
+  ],
+  "meter": [
+    {
+      "bar": 1,
+      "signature": "4/4"
+    },
+    {
+      "bar": 5,
+      "signature": "3/4"
+    },
+    {
+      "bar": 9,
+      "signature": "7/8"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+Source fixture: F22_multimidi
+
+Tempo: 120 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: none
+Tracks:
+  1. Lead [instrument] vol 100 pan 64
+       region 'Inst 1' @ bar 1 beat 1, 1 bars, 0 notes
+  2. Bass [instrument] vol 70 pan 0
+       region 'Inst 2' @ bar 1 beat 1, 1 bars, 0 notes
+  3. Pad Ünïcode [instrument] vol 90 pan 127
+       region 'Inst 3' @ bar 1 beat 1, 1 bars, 0 notes
+  4. A much longer track name than before [instrument] vol 90 pan 64
+       region 'Inst 4' @ bar 1 beat 1, 1 bars, 0 notes

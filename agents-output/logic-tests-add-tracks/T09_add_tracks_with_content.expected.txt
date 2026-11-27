@@ -1,0 +1,17 @@
+Source fixture: mixed_template_2inst
+
+Tempo: 138 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: none
+Adding tracks: yes, up to 58 instrument tracks
+Tracks:
+  1. Keys [instrument] vol 90 pan 64
+       region 'Keys' @ bar 1 beat 1, 2 bars, 16 notes
+  2. Audio 1 [audio] vol 90 pan 64
+  3. Inst 2 [instrument] vol 90 pan 64
+  4. Inst 3 [instrument] vol 90 pan 64
+  5. Arp [instrument] vol 80 pan 30
+       region 'Arp' @ bar 3 beat 1, 4 bars, 32 notes
+  6. Sub Bass [instrument] vol 90 pan 64
+       region 'Sub Bass' @ bar 1 beat 1, 8 bars, 8 notes
+  7. Empty Added [instrument] vol 90 pan 64

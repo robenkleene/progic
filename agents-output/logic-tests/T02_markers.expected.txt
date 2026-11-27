@@ -1,0 +1,7 @@
+Source fixture: F11_markers
+
+Tempo: 120 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: 'Intro' @ bar 1, 'Breakdown' @ bar 9, 'Drop & Build' @ bar 17, 'Outro' @ bar 33
+Tracks:
+  1. Inst 1 [instrument] vol 90 pan 64

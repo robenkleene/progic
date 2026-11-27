@@ -1,0 +1,20 @@
+{
+  "tracks": [
+    {
+      "track": 1,
+      "name": "Lead",
+      "volume": 100
+    },
+    {
+      "track": 2,
+      "name": "Pad",
+      "pan": 20
+    },
+    {
+      "track": 3,
+      "name": "Keys",
+      "volume": 70,
+      "pan": 110
+    }
+  ]
+}

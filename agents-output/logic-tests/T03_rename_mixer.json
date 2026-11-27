@@ -1,0 +1,25 @@
+{
+  "tracks": [
+    {
+      "track": 1,
+      "name": "Lead",
+      "volume": 100,
+      "pan": 64
+    },
+    {
+      "track": "Inst 2",
+      "name": "Bass",
+      "volume": 70,
+      "pan": 0
+    },
+    {
+      "track": 3,
+      "name": "Pad \u00dcn\u00efcode",
+      "pan": 127
+    },
+    {
+      "track": 4,
+      "name": "A much longer track name than before"
+    }
+  ]
+}

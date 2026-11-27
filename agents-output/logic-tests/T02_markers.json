@@ -1,0 +1,21 @@
+{
+  "markers": [
+    {
+      "bar": 1,
+      "name": "Intro"
+    },
+    {
+      "bar": 9,
+      "name": "Breakdown"
+    },
+    {
+      "bar": 17,
+      "beat": 3,
+      "name": "Drop & Build"
+    },
+    {
+      "bar": 33,
+      "name": "Outro"
+    }
+  ]
+}

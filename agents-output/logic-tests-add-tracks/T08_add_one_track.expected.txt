@@ -1,0 +1,12 @@
+Source fixture: mixed_template_2inst
+
+Tempo: 120 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: none
+Adding tracks: yes, up to 60 instrument tracks
+Tracks:
+  1. Inst 1 [instrument] vol 90 pan 64
+  2. Audio 1 [audio] vol 90 pan 64
+  3. Inst 2 [instrument] vol 90 pan 64
+  4. Inst 3 [instrument] vol 90 pan 64
+  5. Added [instrument] vol 90 pan 64

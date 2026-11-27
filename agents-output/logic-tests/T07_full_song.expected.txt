@@ -1,0 +1,17 @@
+Source fixture: F23_av
+
+Tempo: 138 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: 'Intro' @ bar 1, 'Build' @ bar 9, 'Drop' @ bar 17, 'Outro' @ bar 25
+Tracks:
+  1. Lead [instrument] vol 95 pan 64
+       region 'Lead' @ bar 17 beat 1, 8 bars, 64 notes
+  2. Bass [instrument] vol 85 pan 64
+       region 'Bass' @ bar 9 beat 1, 16 bars, 64 notes
+  3. Pad [instrument] vol 90 pan 40
+       region 'Pad' @ bar 1 beat 1, 8 bars, 6 notes
+       region 'Pad' @ bar 17 beat 1, 8 bars, 3 notes
+  4. Spare [instrument] vol 90 pan 64
+  5. 047 [audio] vol 90 pan 64
+  6. 048 [audio] vol 90 pan 64
+  7. 049 [audio] vol 90 pan 64

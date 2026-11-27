@@ -1,0 +1,13 @@
+Source fixture: F22_multimidi
+
+Tempo: 120 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: none
+Tracks:
+  1. Inst 1 [instrument] vol 90 pan 64
+       region 'Inst 1' @ bar 1 beat 1, 4 bars, 32 notes
+  2. Inst 2 [instrument] vol 90 pan 64
+  3. Inst 3 [instrument] vol 90 pan 64
+       region 'Inst 3' @ bar 1 beat 1, 1 bars, 0 notes
+  4. Inst 4 [instrument] vol 90 pan 64
+       region 'Inst 4' @ bar 1 beat 1, 1 bars, 0 notes

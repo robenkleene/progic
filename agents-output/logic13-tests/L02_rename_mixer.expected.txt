@@ -1,0 +1,16 @@
+Source: L13_template (your Software Instrument Template)
+
+Tempo: 120 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: none
+Adding tracks: no (adding tracks to projects saved by Logic 13 isn't supported yet)
+Tracks:
+  1. Lead [instrument] vol 100 pan 64
+       plugin slot 2: Depth
+       plugin slot 3: Drambo (Fx)
+       plugin slot 4: Compressor
+       plugin slot 5: Mania
+  2. Pad [instrument] vol 90 pan 20
+       plugin slot 2: Alchemy
+  3. Keys [instrument] vol 70 pan 110
+       plugin slot 2: E-Piano

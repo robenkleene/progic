@@ -1,0 +1,52 @@
+{
+  "tracks": [
+    {
+      "add": "instrument",
+      "name": "Added 1"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 2"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 3"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 4"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 5"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 6"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 7"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 8"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 9"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 10"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 11"
+    },
+    {
+      "add": "instrument",
+      "name": "Added 12"
+    }
+  ]
+}

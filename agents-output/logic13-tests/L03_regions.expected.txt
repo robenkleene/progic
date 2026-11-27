@@ -1,0 +1,18 @@
+Source: L13_template (your Software Instrument Template)
+
+Tempo: 120 BPM @ bar 1
+Meter: 4/4 @ bar 1
+Markers: none
+Adding tracks: no (adding tracks to projects saved by Logic 13 isn't supported yet)
+Tracks:
+  1. Untitled [instrument] vol 90 pan 64
+       plugin slot 2: Depth
+       plugin slot 3: Drambo (Fx)
+       plugin slot 4: Compressor
+       plugin slot 5: Mania
+       region 'Untitled' @ bar 1 beat 1, 2 bars, 16 notes
+  2. Deluxe Classic [instrument] vol 90 pan 64
+       plugin slot 2: Alchemy
+       region 'Deluxe Classic' @ bar 3 beat 1, 4 bars, 3 notes
+  3. Deluxe Classic [instrument] vol 90 pan 64
+       plugin slot 2: E-Piano
