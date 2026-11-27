@@ -52,7 +52,10 @@ are allowed.
         {"plugin": "Chorus", "remove": true},// or remove a plugin
         {"plugin": "Arpeggiator",            // or replace it with a copy of
          "replace_with": {"track": 2,        //   another track's, with its
-                          "plugin": "Purpose"}} //   settings
+                          "plugin": "Purpose"}}, //   settings
+        {"add": {"track": 22,                // or ADD a copy of another track's
+                 "plugin": "ChromaVerb"}}    //   effect or MIDI effect, after
+                                             //   the ones of its kind
       ],
       "clear_regions": true,                 // delete existing regions first
       "regions": [                           // ADD MIDI regions (instrument tracks)
@@ -393,26 +396,45 @@ def _plugin(track: tracks.Track, ref: Any, where: str) -> tracks.Plugin:
         raise EditError(f"{where}: {e}") from e
 
 
+def _source_plugin(pd: ProjectData, ref: Any, where: str) -> tuple[tracks.Track, tracks.Plugin]:
+    if not isinstance(ref, dict) or set(ref) != {"track", "plugin"}:
+        raise EditError(f"{where}: must be like {{\"track\": 2, \"plugin\": \"Purpose\"}}")
+    try:
+        source_track = tracks.find_track(pd, ref["track"])
+    except tracks.TrackError as e:
+        raise EditError(f"{where}: {e}") from e
+    return source_track, _plugin(source_track, ref["plugin"], where)
+
+
 def _apply_plugins(pd: ProjectData, track: tracks.Track, value: Any, where: str) -> list[dict[str, Any]]:
     done: list[dict[str, Any]] = []
     for i, pe in enumerate(_changes(value, where)):
         pw = f"{where}[{i}]"
-        unknown = set(pe) - {"plugin", "params", "remove", "replace_with"}
+        unknown = set(pe) - {"plugin", "params", "remove", "replace_with", "add"}
         if unknown:
             raise EditError(f"{pw}: unknown keys: {', '.join(sorted(unknown))}")
+        if "add" in pe:
+            if set(pe) != {"add"}:
+                raise EditError(f"{pw}: 'add' goes on its own, without 'plugin'")
+            source_track, source = _source_plugin(pd, pe["add"], f"{pw}.add")
+            assert source.record is not None
+            # An instrument is first in an instrument channel's audio chain
+            if source_track.kind == "instrument" and plugins.chain(source.record) == (plugins.AUDIO_CHAIN, 0):
+                raise EditError(f"{pw}: only an effect or a MIDI effect can be added; replace an instrument instead")
+            if track.strip_id is None:
+                raise EditError(f"{pw}: track {track.name!r} has no channel strip")
+            try:
+                pd.records = plugins.added_to(pd.records, track.strip_id, source.record)
+            except plugins.PluginError as e:
+                raise EditError(f"{pw}: {e}") from e
+            done.append({"added": source.name})
+            continue
         plugin = _plugin(track, pe.get("plugin"), pw)
         assert plugin.record is not None
         if sum(1 for k in ("params", "remove", "replace_with") if pe.get(k)) > 1:
             raise EditError(f"{pw}: give one of 'params', 'remove', or 'replace_with'")
         if "replace_with" in pe:
-            source_ref = pe["replace_with"]
-            if not isinstance(source_ref, dict) or set(source_ref) != {"track", "plugin"}:
-                raise EditError(f"{pw}: 'replace_with' must be like {{\"track\": 2, \"plugin\": \"Purpose\"}}")
-            try:
-                source_track = tracks.find_track(pd, source_ref["track"])
-            except tracks.TrackError as e:
-                raise EditError(f"{pw}.replace_with: {e}") from e
-            source = _plugin(source_track, source_ref["plugin"], f"{pw}.replace_with")
+            _, source = _source_plugin(pd, pe["replace_with"], f"{pw}.replace_with")
             assert source.record is not None
             copy = plugins.copied_into(source.record, plugin.record)
             pd.records[pd.records.index(plugin.record)] = copy

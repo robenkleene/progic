@@ -66,7 +66,7 @@ Prints the full edit file reference. The edit file can set:
 - `tempo`: one BPM or a list of changes by bar and beat
 - `end`: the project end marker, where exporting stops
 - `markers`: the complete list of markers (replaces existing ones)
-- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), plugin `params` (for plugins built with JUCE), `remove` a plugin, or replace it with a copy of another track's (`replace_with`), `clear_regions`, new MIDI `regions`, new `audio_regions` playing WAV files, which are copied into the project, and volume and pan `automation`, ramping between points; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
+- `tracks`: per track, a new `name`, `volume` and `pan` (0-127), plugin `params` (for plugins built with JUCE), `remove` a plugin, replace it with a copy of another track's (`replace_with`), or `add` a copy of another track's effect or MIDI effect, `clear_regions`, new MIDI `regions`, new `audio_regions` playing WAV files, which are copied into the project, and volume and pan `automation`, ramping between points; an entry with `"add": "instrument"` instead of `"track"` adds a software instrument track
 
 ### `progic skill [--install [DIR]]`
 

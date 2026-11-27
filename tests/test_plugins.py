@@ -5,7 +5,7 @@ import unittest
 from progic import edits, plugins
 from progic import tracks as T
 from progic.bundle import Bundle
-from progic.container import ProjectData
+from progic.container import REC_HEADER_SIZE, ProjectData, u16, u32
 
 from .util import fixture
 
@@ -76,9 +76,47 @@ class PluginTest(unittest.TestCase):
             ({"plugin": "E-Piano", "params": {"a": 1}}, 2, "isn't a JUCE plugin"),
             ({"plugin": "Mania", "params": {"swing": "x"}}, 1, "'swing' must be a number"),
             ({"plugin": "Mania", "params": {"swing": 1}, "remove": True}, 1, "give one of 'params', 'remove', or 'replace_with'"),
-            ({"plugin": "Mania", "replace_with": {"track": 2}}, 1, "'replace_with' must be like"),
+            ({"plugin": "Mania", "replace_with": {"track": 2}}, 1, "replace_with: must be like"),
         ]
         for entry, track, message in cases:
             with self.subTest(message), self.assertRaises(edits.EditError) as ctx:
                 edits.apply(load("L13_abstract"), {"tracks": [{"track": track, "plugins": [entry]}]})
             self.assertIn(message, str(ctx.exception))
+
+class AddPluginTest(unittest.TestCase):
+    def slots(self, pd: ProjectData, n: int) -> list[tuple[int, tuple[int, int], str]]:
+        strip = T.find_track(pd, n).strip_id
+        return [
+            (u16(r.raw, 0x12), plugins.chain(r), r.raw[REC_HEADER_SIZE + 0x78:REC_HEADER_SIZE + 0x84].split(b"\0")[0].decode("latin-1"))
+            for r in pd.find(b"UCuA")
+            if u32(r.raw, 0x0C) >> 16 == strip
+        ]
+
+    def test_adds_effect_after_inserts(self) -> None:
+        pd = load("L13_audio_kits")
+        edits.apply(pd, {"tracks": [{"track": 2, "plugins": [{"add": {"track": 22, "plugin": "Phaser"}}]}]})
+        pd = ProjectData.parse(pd.serialize())
+        got = [(o, c, name) for o, c, name in self.slots(pd, 2) if c[0] in (1, 2)]
+        self.assertEqual(got, [(3, (1, 0), "E-Piano"), (4, (1, 1), "Phaser"), (7, (2, 0), "Purpose")])
+        self.assertEqual([p.name for p in T.find_track(pd, 2).plugins], ["E-Piano", "Phaser", "Purpose"])
+
+    def test_adds_midi_effect(self) -> None:
+        # Logic played this Mania, copied to a drum kit's kick
+        pd = load("L13_audio_kits")
+        edits.apply(pd, {"tracks": [{"track": 23, "plugins": [{"add": {"track": 1, "plugin": "Mania"}}]}]})
+        pd = ProjectData.parse(pd.serialize())
+        got = [(o, c, name) for o, c, name in self.slots(pd, 23) if c[0] in (1, 2)]
+        self.assertEqual(got, [(3, (1, 0), "Q-Sampler"), (4, (2, 0), "Mania")])
+        self.assertIsNotNone(plugins.params(T.find_plugin(T.find_track(pd, 23), "Mania").record))
+
+    def test_renumbers_without_gap(self) -> None:
+        # L13_template's inserts and MIDI effect have consecutive ordinals
+        pd = load("L13_template")
+        edits.apply(pd, {"tracks": [{"track": 1, "plugins": [{"add": {"track": 1, "plugin": "Compressor"}}]}]})
+        got = [(o, c) for o, c, _ in self.slots(ProjectData.parse(pd.serialize()), 1)][:6]
+        self.assertEqual(got, [(2, (1, 0)), (3, (1, 1)), (4, (1, 2)), (5, (1, 3)), (6, (2, 0)), (8, (5, 0))])
+
+    def test_cannot_add_instrument(self) -> None:
+        pd = load("L13_audio_kits")
+        with self.assertRaisesRegex(edits.EditError, "only an effect or a MIDI effect"):
+            edits.apply(pd, {"tracks": [{"track": 2, "plugins": [{"add": {"track": 1, "plugin": "Depth"}}]}]})
